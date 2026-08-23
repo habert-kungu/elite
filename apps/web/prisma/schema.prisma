@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String?
+  name          String?
+  telegram      String?
+  walletAddress String?
+  role          String         @default("user")
+  /// Bumped to invalidate every issued session (password change/reset, admin action).
+  tokenVersion  Int            @default(0)
+  /// Email two-step verification: a 6-digit code is required at sign-in.
+  twoFactorEnabled Boolean     @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  investments   Investment[]
+  transactions  Transaction[]
+  cycles        Cycle[]
+  resetTokens   PasswordResetToken[]
+  twoFactorCodes TwoFactorCode[]
+}
+
+model Investment {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pool        String
+  amount      Float
+  txHash      String?
+  network     String    @default("TRC20")
+  status      String    @default("pending")
+  roi         Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  cycles      Cycle[]
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  amount      Float
+  netAmount   Float?
+  fee         Float?
+  currency    String    @default("USDT")
+  txHash      String?
+  status      String    @default("pending")
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Cycle {
+  id            String    @id @default(cuid())
+  investmentId  String
+  investment    Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startValue    Float
+  currentValue  Float
+  targetValue   Float
+  progress      Float     @default(0)
+  /// When `progress` was last set (by approval or an admin adjustment). Time-based
+  /// progression continues from this baseline. Null = from createdAt.
+  progressAt    DateTime?
+  status        String    @default("active")
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+/// Single-use, expiring token for the "forgot password" flow. Only a SHA-256
+/// hash of the token is stored; the raw token lives solely in the emailed link.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// One-time 6-digit email codes (hashed) for two-step sign-in and for
+/// turning two-step verification on. Expire after 10 minutes, 5 attempts.
+model TwoFactorCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String    // "login" | "enable"
+  codeHash  String
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+}

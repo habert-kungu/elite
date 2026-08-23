@@ -1,0 +1,12 @@
+# Automatic HTTPS via Let's Encrypt. DOMAIN is injected by docker-compose
+# (e.g. DOMAIN=alphareserve.net). Caddy obtains certs on first request once the
+# domain's DNS points at this server and ports 80/443 are reachable.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Redirect www -> apex (requires a www A record too; harmless if unused).
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

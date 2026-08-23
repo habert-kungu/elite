@@ -1,0 +1,431 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); background: transparent; color: var(--color-text-primary); }
+
+.spec-root { padding: 0 0 2rem; }
+
+/* Section */
+.section { margin-bottom: 2.5rem; }
+.section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+
+/* Color swatches */
+.swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { border-radius: 6px; overflow: hidden; flex: 1; min-width: 64px; }
+.swatch-color { height: 40px; border: 0.5px solid var(--color-border-tertiary); border-radius: 6px 6px 0 0; }
+.swatch-info { padding: 6px 8px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-top: none; border-radius: 0 0 6px 6px; }
+.swatch-name { font-size: 11px; font-weight: 500; color: var(--color-text-primary); display: block; }
+.swatch-hex  { font-size: 10px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+
+/* Type scale */
+.type-row { display: flex; align-items: baseline; gap: 1rem; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.type-row:last-child { border-bottom: none; }
+.type-meta { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); min-width: 140px; flex-shrink: 0; }
+.type-sample { color: var(--color-text-primary); }
+
+/* Spacing */
+.space-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.space-bar { background: var(--color-background-info); border-radius: 2px; height: 8px; }
+.space-label { font-size: 11px; color: var(--color-text-secondary); font-family: var(--font-mono); min-width: 64px; }
+.space-desc { font-size: 11px; color: var(--color-text-tertiary); }
+
+/* Component demos */
+.component-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.demo-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px; border: 0.5px solid var(--color-border-tertiary); }
+.demo-label { font-size: 10px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; font-weight: 500; }
+
+/* Sidebar item */
+.sidebar-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; font-size: 13px; cursor: pointer; color: var(--color-text-secondary); margin-bottom: 1px; }
+.sidebar-item:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+.sidebar-item.active { background: var(--color-background-secondary); color: var(--color-text-primary); font-weight: 500; }
+.sidebar-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sidebar-count { margin-left: auto; font-size: 11px; color: var(--color-text-tertiary); }
+
+/* Issue row */
+.issue-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--color-border-tertiary); font-size: 13px; }
+.issue-row:last-child { border-bottom: none; }
+.status-icon { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.issue-title { color: var(--color-text-primary); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.issue-id { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+.priority-icon { font-size: 10px; color: var(--color-text-tertiary); }
+
+/* Badge */
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+
+/* Button demos */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 28px; border-radius: 5px; font-size: 13px; font-weight: 400; cursor: pointer; border: none; font-family: var(--font-sans); }
+.btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); }
+.btn-secondary { background: var(--color-background-secondary); color: var(--color-text-primary); border: 0.5px solid var(--color-border-secondary); }
+.btn-ghost { background: transparent; color: var(--color-text-secondary); border: 0.5px solid var(--color-border-tertiary); }
+.btn-danger { background: var(--color-background-danger); color: var(--color-text-danger); border: 0.5px solid var(--color-border-danger, var(--color-border-tertiary)); }
+.btn-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* Input */
+.input-demo { width: 100%; padding: 0 10px; height: 30px; border-radius: 5px; font-size: 13px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-secondary); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; }
+.input-demo:focus { border-color: var(--color-border-primary); box-shadow: 0 0 0 2px rgba(0,0,0,0.06); }
+
+/* Breadcrumb */
+.breadcrumb { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--color-text-tertiary); }
+.breadcrumb span { color: var(--color-text-secondary); }
+.breadcrumb-sep { color: var(--color-text-tertiary); opacity: 0.5; }
+
+/* Layout diagram */
+.layout-diagram { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; height: 140px; display: flex; font-size: 11px; }
+.layout-sidebar { width: 48px; background: var(--color-background-secondary); border-right: 0.5px solid var(--color-border-tertiary); display: flex; flex-direction: column; align-items: center; padding-top: 10px; gap: 6px; }
+.layout-nav { width: 80px; background: var(--color-background-secondary); border-right: 0.5px solid var(--color-border-tertiary); padding: 8px 6px; flex-shrink: 0; }
+.layout-main { flex: 1; display: flex; flex-direction: column; }
+.layout-toolbar { height: 28px; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); display: flex; align-items: center; padding: 0 10px; gap: 6px; }
+.layout-content { flex: 1; background: var(--color-background-primary); padding: 8px 10px; }
+.layout-icon { width: 18px; height: 18px; border-radius: 4px; background: var(--color-border-tertiary); }
+.layout-nav-item { height: 16px; border-radius: 3px; background: var(--color-border-tertiary); margin-bottom: 4px; opacity: 0.6; }
+.layout-row { height: 10px; border-radius: 2px; background: var(--color-border-tertiary); margin-bottom: 5px; opacity: 0.5; }
+.layout-toolbar-pill { height: 14px; width: 40px; border-radius: 3px; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tab { padding: 6px 12px; font-size: 12px; color: var(--color-text-tertiary); cursor: pointer; border-bottom: 1.5px solid transparent; margin-bottom: -0.5px; }
+.tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); font-weight: 500; }
+
+/* Grid */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.one-col { display: grid; grid-template-columns: 1fr; gap: 8px; }
+
+/* Accent colors for the palette */
+.c-bg { background: var(--color-background-primary); }
+.c-bg2 { background: var(--color-background-secondary); }
+.c-bg3 { background: var(--color-background-tertiary); }
+.c-info { background: var(--color-background-info); }
+.c-success { background: var(--color-background-success); }
+.c-warn { background: var(--color-background-warning); }
+.c-danger { background: var(--color-background-danger); }
+
+.divider { height: 0.5px; background: var(--color-border-tertiary); margin: 1.5rem 0; }
+</style>
+
+<div class="spec-root">
+  <h2 style="sr-only">Linear-Inspired Dashboard Design Specification</h2>
+
+  <!-- Header -->
+  <div style="margin-bottom: 2rem;">
+    <p style="font-size: 22px; font-weight: 500; margin-bottom: 4px;">Dashboard Design Spec</p>
+    <p style="font-size: 13px; color: var(--color-text-tertiary);">Linear-inspired — layout, typography, components & interaction patterns</p>
+  </div>
+
+  <!-- Layout Structure -->
+  <div class="section">
+    <div class="section-label">Layout structure</div>
+    <div class="layout-diagram">
+      <div class="layout-sidebar">
+        <div class="layout-icon"></div>
+        <div style="width:18px;height:18px;border-radius:4px;background:var(--color-border-secondary);"></div>
+        <div style="width:18px;height:18px;border-radius:4px;background:var(--color-border-tertiary);opacity:.5"></div>
+        <div style="width:18px;height:18px;border-radius:4px;background:var(--color-border-tertiary);opacity:.5"></div>
+      </div>
+      <div class="layout-nav">
+        <div class="layout-nav-item" style="width:56px;opacity:1;background:var(--color-border-secondary)"></div>
+        <div class="layout-nav-item" style="width:40px;"></div>
+        <div class="layout-nav-item" style="width:50px;"></div>
+        <div class="layout-nav-item" style="width:35px;"></div>
+        <div style="height:0.5px;background:var(--color-border-tertiary);margin:6px 0;"></div>
+        <div class="layout-nav-item" style="width:44px;"></div>
+        <div class="layout-nav-item" style="width:38px;"></div>
+      </div>
+      <div class="layout-main">
+        <div class="layout-toolbar">
+          <div style="font-size:10px;color:var(--color-text-tertiary);flex:1;">Breadcrumb / view title</div>
+          <div class="layout-toolbar-pill"></div>
+          <div class="layout-toolbar-pill"></div>
+        </div>
+        <div class="layout-content">
+          <div class="layout-row" style="width:90%;"></div>
+          <div class="layout-row" style="width:75%;"></div>
+          <div class="layout-row" style="width:85%;"></div>
+          <div class="layout-row" style="width:60%;"></div>
+          <div class="layout-row" style="width:80%;"></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;">
+      <div style="padding:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:2px;">Icon rail</div>
+        <div style="color:var(--color-text-tertiary);">48px wide · workspace + app nav</div>
+      </div>
+      <div style="padding:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:2px;">Sidebar</div>
+        <div style="color:var(--color-text-tertiary);">200–240px · section nav, filters</div>
+      </div>
+      <div style="padding:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:2px;">Toolbar</div>
+        <div style="color:var(--color-text-tertiary);">32px · breadcrumb + view controls</div>
+      </div>
+      <div style="padding:8px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:2px;">Content</div>
+        <div style="color:var(--color-text-tertiary);">Fluid · 16–24px inset padding</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Color system -->
+  <div class="section">
+    <div class="section-label">Color system (semantic)</div>
+    <div class="swatch-row">
+      <div class="swatch">
+        <div class="swatch-color c-bg" style="border:0.5px solid var(--color-border-tertiary);"></div>
+        <div class="swatch-info"><span class="swatch-name">Background</span><span class="swatch-hex">bg-primary</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-bg2"></div>
+        <div class="swatch-info"><span class="swatch-name">Surface</span><span class="swatch-hex">bg-secondary</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-bg3"></div>
+        <div class="swatch-info"><span class="swatch-name">Page bg</span><span class="swatch-hex">bg-tertiary</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-info"></div>
+        <div class="swatch-info"><span class="swatch-name">Info / accent</span><span class="swatch-hex">bg-info</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-success"></div>
+        <div class="swatch-info"><span class="swatch-name">Success</span><span class="swatch-hex">bg-success</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-warn"></div>
+        <div class="swatch-info"><span class="swatch-name">Warning</span><span class="swatch-hex">bg-warning</span></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color c-danger"></div>
+        <div class="swatch-info"><span class="swatch-name">Danger</span><span class="swatch-hex">bg-danger</span></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-secondary);">
+      All colors are semantic CSS variables — light & dark mode handled automatically. Pair each <code style="font-size:10px;font-family:var(--font-mono);">bg-*</code> with its <code style="font-size:10px;font-family:var(--font-mono);">text-*</code> counterpart for accessible contrast. Never hardcode hex values in components.
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <div class="section">
+    <div class="section-label">Type scale</div>
+    <div>
+      <div class="type-row"><span class="type-meta">24px / 500 · page title</span><span class="type-sample" style="font-size:24px;font-weight:500;">Issues</span></div>
+      <div class="type-row"><span class="type-meta">18px / 500 · view heading</span><span class="type-sample" style="font-size:18px;font-weight:500;">Active sprint</span></div>
+      <div class="type-row"><span class="type-meta">15px / 500 · section header</span><span class="type-sample" style="font-size:15px;font-weight:500;">In progress</span></div>
+      <div class="type-row"><span class="type-meta">13px / 400 · body / row text</span><span class="type-sample" style="font-size:13px;">Fix pagination bug on reports view</span></div>
+      <div class="type-row"><span class="type-meta">12px / 400 · secondary / meta</span><span class="type-sample" style="font-size:12px;color:var(--color-text-secondary);">Updated 2h ago · ENG-142</span></div>
+      <div class="type-row"><span class="type-meta">11px / 400 · labels / captions</span><span class="type-sample" style="font-size:11px;color:var(--color-text-tertiary);letter-spacing:.04em;text-transform:uppercase;font-weight:500;">Priority</span></div>
+    </div>
+  </div>
+
+  <!-- Spacing -->
+  <div class="section">
+    <div class="section-label">Spacing scale (4px base)</div>
+    <div>
+      <div class="space-row"><div class="space-bar" style="width:4px;"></div><span class="space-label">4px (1×)</span><span class="space-desc">Icon gaps, tight insets</span></div>
+      <div class="space-row"><div class="space-bar" style="width:8px;"></div><span class="space-label">8px (2×)</span><span class="space-desc">Row padding, badge padding</span></div>
+      <div class="space-row"><div class="space-bar" style="width:12px;"></div><span class="space-label">12px (3×)</span><span class="space-desc">Component internal gap</span></div>
+      <div class="space-row"><div class="space-bar" style="width:16px;"></div><span class="space-label">16px (4×)</span><span class="space-desc">Card padding, section gap</span></div>
+      <div class="space-row"><div class="space-bar" style="width:24px;"></div><span class="space-label">24px (6×)</span><span class="space-desc">Content inset, column gap</span></div>
+      <div class="space-row"><div class="space-bar" style="width:32px;"></div><span class="space-label">32px (8×)</span><span class="space-desc">Section dividers, hero padding</span></div>
+    </div>
+  </div>
+
+  <!-- Components -->
+  <div class="section">
+    <div class="section-label">Components</div>
+    <div class="two-col">
+
+      <!-- Sidebar nav -->
+      <div class="demo-card">
+        <div class="demo-label">Sidebar navigation</div>
+        <div class="sidebar-item active">
+          <div class="sidebar-dot" style="background:#5B8DEF;"></div>
+          Issues
+          <span class="sidebar-count">24</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-dot" style="background:#A78BFA;"></div>
+          Backlog
+          <span class="sidebar-count">47</span>
+        </div>
+        <div class="sidebar-item">
+          <div class="sidebar-dot" style="background:#34D399;"></div>
+          Completed
+          <span class="sidebar-count">182</span>
+        </div>
+        <div class="sidebar-item" style="margin-top:4px;opacity:.6;">
+          <div class="sidebar-dot" style="background:var(--color-border-secondary);"></div>
+          Cancelled
+          <span class="sidebar-count">8</span>
+        </div>
+      </div>
+
+      <!-- Issue list rows -->
+      <div class="demo-card">
+        <div class="demo-label">Issue list</div>
+        <div class="issue-row">
+          <div class="status-icon" style="border:1.5px solid #5B8DEF;"></div>
+          <span class="issue-title">Fix filter persistence on reload</span>
+          <span class="issue-id">ENG-48</span>
+        </div>
+        <div class="issue-row">
+          <div class="status-icon" style="background:#A78BFA;"></div>
+          <span class="issue-title">Design new onboarding flow</span>
+          <span class="issue-id">DES-12</span>
+        </div>
+        <div class="issue-row">
+          <div class="status-icon" style="background:#34D399;"></div>
+          <span class="issue-title">Migrate auth to OAuth 2.0</span>
+          <span class="issue-id">ENG-51</span>
+        </div>
+        <div class="issue-row" style="opacity:.5;">
+          <div class="status-icon" style="border:1.5px solid var(--color-border-secondary);"></div>
+          <span class="issue-title">Update README documentation</span>
+          <span class="issue-id">ENG-44</span>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="demo-card">
+        <div class="demo-label">Buttons</div>
+        <div class="btn-row" style="margin-bottom:8px;">
+          <button class="btn btn-primary">Create issue</button>
+          <button class="btn btn-secondary">Filter</button>
+          <button class="btn btn-ghost">Cancel</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-danger">Delete</button>
+          <button class="btn btn-secondary" style="gap:4px;">
+            <span style="font-size:14px;line-height:1;">+</span> Add
+          </button>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--color-text-tertiary);">Heights: 28px compact · 32px default · 36px large<br>Radius: 5–6px. Weight: 400 (not bold).</div>
+      </div>
+
+      <!-- Status badges -->
+      <div class="demo-card">
+        <div class="demo-label">Status badges</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          <span class="badge" style="background:var(--color-background-info);color:var(--color-text-info);">In progress</span>
+          <span class="badge" style="background:var(--color-background-success);color:var(--color-text-success);">Done</span>
+          <span class="badge" style="background:var(--color-background-warning);color:var(--color-text-warning);">Blocked</span>
+          <span class="badge" style="background:var(--color-background-danger);color:var(--color-text-danger);">Urgent</span>
+          <span class="badge" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">Backlog</span>
+        </div>
+        <div style="font-size:11px;color:var(--color-text-tertiary);">
+          11px / 500 · 4px radius · colored bg + matched text<br>
+          Never use plain black text on colored badges.
+        </div>
+      </div>
+
+      <!-- Text input -->
+      <div class="demo-card">
+        <div class="demo-label">Inputs</div>
+        <input class="input-demo" placeholder="Search issues…" style="margin-bottom:8px;" />
+        <input class="input-demo" placeholder="Issue title" />
+        <div style="margin-top:8px;font-size:11px;color:var(--color-text-tertiary);">
+          30–32px height · 0.5px border · 5px radius<br>
+          Focus ring: 2px offset, 6% black
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="demo-card">
+        <div class="demo-label">Tabs / view switcher</div>
+        <div class="tabs">
+          <div class="tab active">Issues</div>
+          <div class="tab">Cycles</div>
+          <div class="tab">Roadmap</div>
+          <div class="tab">Settings</div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--color-text-tertiary);">
+          Active: 1.5px bottom border, primary text<br>
+          Inactive: tertiary text, no decoration
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Breadcrumb + toolbar pattern -->
+  <div class="section">
+    <div class="section-label">Toolbar pattern</div>
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);">
+      <div class="breadcrumb">
+        <span style="color:var(--color-text-tertiary);">Engineering</span>
+        <span class="breadcrumb-sep">/</span>
+        <span>Issues</span>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="btn btn-ghost" style="font-size:12px;height:24px;padding:0 8px;">Filter</button>
+      <button class="btn btn-ghost" style="font-size:12px;height:24px;padding:0 8px;">Group by</button>
+      <button class="btn btn-primary" style="font-size:12px;height:24px;padding:0 8px;">+ Create</button>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--color-text-tertiary);">
+      Keep toolbar height to 32–36px. Breadcrumb on left (12px), action buttons on right. Separate view controls (filter/group) from creation actions.
+    </div>
+  </div>
+
+  <!-- Border radius -->
+  <div class="section">
+    <div class="section-label">Border radius</div>
+    <div style="display:flex;gap:12px;align-items:flex-end;">
+      <div style="text-align:center;">
+        <div style="width:44px;height:44px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:4px;margin-bottom:4px;"></div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">4px</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);">tags, badges</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:52px;height:44px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:6px;margin-bottom:4px;"></div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">6px</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);">buttons, inputs</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:64px;height:52px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:8px;margin-bottom:4px;"></div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">8px</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);">cards, panels</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:76px;height:60px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:12px;margin-bottom:4px;"></div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">12px</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);">modals, drawers</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="width:44px;height:44px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:50%;margin-bottom:4px;"></div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);">50%</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary);">avatars, dots</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules summary -->
+  <div class="section">
+    <div class="section-label">Core principles</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">Borders are 0.5px</div>
+        <div style="color:var(--color-text-tertiary);">Never 1px. Thin strokes feel native and refined. Use tertiary opacity for resting state, secondary on hover.</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">No shadows on surfaces</div>
+        <div style="color:var(--color-text-tertiary);">Elevation is communicated via background color difference, not drop shadows. Modals use an overlay + border.</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">Density over padding</div>
+        <div style="color:var(--color-text-tertiary);">Rows are 32–36px, not 48px+. Users see more data. Use 4px vertical padding in list rows.</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">Keyboard-first interaction</div>
+        <div style="color:var(--color-text-tertiary);">Every action has a shortcut. Show them in tooltips and command palette. Focus states must be clearly visible.</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">Monochrome with semantic color</div>
+        <div style="color:var(--color-text-tertiary);">UI is near-neutral. Color is reserved for status (info/success/warning/danger) and entity type dots.</div>
+      </div>
+      <div style="padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);">
+        <div style="font-weight:500;margin-bottom:4px;">Transitions: 120–150ms</div>
+        <div style="color:var(--color-text-tertiary);">Hover states use 100ms ease. Slide-in panels use 150ms ease-out. Avoid bouncy or spring animations.</div>
+      </div>
+    </div>
+  </div>
+
+</div>

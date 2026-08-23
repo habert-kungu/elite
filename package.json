@@ -1,0 +1,35 @@
+{
+  "name": "elite",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "@workspace/eslint-config": "*",
+    "@workspace/typescript-config": "*",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "turbo": "^2.8.17",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "@remixicon/react": "^4.9.0",
+    "cobe": "^2.0.1",
+    "gsap": "^3.15.0",
+    "recharts": "^3.8.1"
+  }
+}
