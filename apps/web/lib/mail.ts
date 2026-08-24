@@ -7,7 +7,7 @@ import { MIN_DEPOSIT_USD, SELECTABLE_PLANS, formatPlanAmount, planCurrency, plan
  *
  *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE ("true" for 465)
  *   MAIL_FROM   e.g. "Elite Forex Hub <no-reply@example.com>"
- *   APP_URL     public origin used in links, e.g. https://eliteforexhub.com
+ *   APP_URL     public origin used in links, e.g. https://elitequest.net
  *   ADMIN_EMAIL optional — receives admin notices (new deposit requests)
  *
  * When SMTP_HOST is unset (local dev) nothing is sent; the message is logged
@@ -21,7 +21,7 @@ export function isMailConfigured(): boolean {
 }
 
 /** Public site origin for links in emails. */
-export const PRODUCTION_URL = "https://eliteforexhub.com"
+export const PRODUCTION_URL = "https://elitequest.net"
 
 export function appUrl(path = ""): string {
   const explicit = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL

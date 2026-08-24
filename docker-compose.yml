@@ -29,6 +29,10 @@ services:
       MAIL_FROM: ${MAIL_FROM:-Elite Forex Hub <no-reply@${DOMAIN:-localhost}>}
       APP_URL: ${APP_URL:-https://${DOMAIN:-localhost}}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      # Deposit receiving wallets. Read at request time, so rotating one is a
+      # `docker compose up -d` — no image rebuild.
+      DEPOSIT_USDT_TRC20_ADDRESS: ${DEPOSIT_USDT_TRC20_ADDRESS:-}
+      DEPOSIT_BTC_ADDRESS: ${DEPOSIT_BTC_ADDRESS:-}
     volumes:
       - elite-data:/data
     restart: unless-stopped

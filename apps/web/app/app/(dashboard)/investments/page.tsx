@@ -6,7 +6,7 @@ import { Badge, Button, Card, CardHeader, Modal, Notice, Select, Stat, Tabs, Tex
 import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
 import { invalidateCache, useCachedFetch } from "@/lib/use-cached-fetch"
-import { DEPOSIT_NETWORKS, depositNetwork, type DepositNetworkKey } from "@/lib/deposit-addresses"
+import { DEPOSIT_NETWORKS, depositNetwork, type DepositNetworkKey, type ResolvedDepositNetwork } from "@/lib/deposit-addresses"
 import {
   PLANS,
   SELECTABLE_PLANS,
@@ -75,7 +75,16 @@ export default function InvestmentsPage() {
   const [amount, setAmount] = React.useState("")
   const [selectedPlan, setSelectedPlan] = React.useState<PlanKey>("pro5")
   const [network, setNetwork] = React.useState<DepositNetworkKey>("TRC20")
-  const wallet = depositNetwork(network)
+  // Receiving addresses are resolved on the server at request time, so the
+  // built image never carries one and rotating a wallet needs no rebuild.
+  const { data: deposit } = useCachedFetch<{ networks: ResolvedDepositNetwork[] }>(
+    user ? "/api/deposit-networks" : null,
+    { ttl: 5 * 60_000 }
+  )
+  const meta = depositNetwork(network)
+  const resolved = deposit?.networks.find((n) => n.key === network)
+  const wallet = { ...meta, address: resolved?.address ?? "" }
+  const addressReady = wallet.address.length > 0
   const [txHash, setTxHash] = React.useState("")
   const [notes, setNotes] = React.useState("")
   const [showConfirm, setShowConfirm] = React.useState(false)
@@ -109,7 +118,7 @@ export default function InvestmentsPage() {
   const calculatedReturn = calculateTargetReturn(stake, selectedPlan)
   const roi = calculateRoi(stake, selectedPlan)
   const amountError = amount ? validatePlanAmount(stake, selectedPlan) : null
-  const canSubmit = stake > 0 && !amountError && !!txHash && !submitting
+  const canSubmit = stake > 0 && !amountError && !!txHash && !submitting && addressReady
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -258,9 +267,9 @@ export default function InvestmentsPage() {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <code className="min-w-0 flex-1 break-all rounded-[8px] bg-surface px-3 py-2.5 font-mono text-[12px] leading-[18px] text-foreground" data-testid="deposit-address">
-                  {wallet.address}
+                  {addressReady ? wallet.address : deposit ? "Unavailable — contact support" : "Loading…"}
                 </code>
-                <Button type="button" variant={copiedAddress ? "success" : "secondary"} size="sm" onClick={copyAddress} className="flex-shrink-0">
+                <Button type="button" variant={copiedAddress ? "success" : "secondary"} size="sm" onClick={copyAddress} className="flex-shrink-0" disabled={!addressReady}>
                   {copiedAddress ? <IconCheck className="h-4 w-4" stroke={2} /> : <IconCopy className="h-4 w-4" stroke={1.8} />}
                   {copiedAddress ? "Copied" : "Copy address"}
                 </Button>

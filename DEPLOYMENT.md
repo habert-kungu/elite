@@ -47,9 +47,11 @@ in the `Dockerfile` builder stage.
 | `DATABASE_URL`                 | preset   | `file:/data/prod.db` (on the volume). Leave as-is. |
 | `PUSHER_*` / `NEXT_PUBLIC_PUSHER_*` | No  | Real-time notifications. Unset = feature disabled. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | No | Outbound email (password reset, welcome, deposit approved/rejected, admin-created accounts). Unset `SMTP_HOST` = emails are printed to the container log instead. Any SMTP provider works (Brevo, Resend SMTP, Gmail app password, Mailgun…). |
-| `MAIL_FROM`                    | No       | Sender, e.g. `Elite Forex Hub <no-reply@eliteforexhub.com>`. Defaults to `no-reply@$DOMAIN`. |
+| `MAIL_FROM`                    | No       | Sender, e.g. `Elite Forex Hub <no-reply@elitequest.net>`. Defaults to `no-reply@$DOMAIN`. |
 | `APP_URL`                      | No       | Public origin used in emailed links. Defaults to `https://$DOMAIN`. |
 | `ADMIN_EMAIL`                  | No       | Receives a notice for every new deposit request. |
+| `DEPOSIT_USDT_TRC20_ADDRESS`   | No       | USDT (TRC20) receiving wallet. Unset = that network is hidden on the deposit form. |
+| `DEPOSIT_BTC_ADDRESS`          | No       | Bitcoin receiving wallet (native SegWit, `bc1…`). Unset = hidden. |
 
 ### Ultahost email (Open-Xchange)
 
@@ -60,9 +62,9 @@ Ultahost's mailboxes are hosted on Open-Xchange Cloud (`*.cloudeu.xion.oxcs.net`
 SMTP_HOST=smtp.cloudeu.xion.oxcs.net
 SMTP_PORT=465
 SMTP_SECURE=true            # or SMTP_PORT=587 + SMTP_SECURE=false (STARTTLS)
-SMTP_USER=no-reply@eliteforexhub.com   # the full mailbox address
+SMTP_USER=no-reply@elitequest.net   # the full mailbox address
 SMTP_PASS=...                         # that mailbox's password
-MAIL_FROM="Elite Forex Hub <no-reply@eliteforexhub.com>"   # must be the same mailbox (OX rejects other senders)
+MAIL_FROM="Elite Forex Hub <no-reply@elitequest.net>"   # must be the same mailbox (OX rejects other senders)
 ```
 
 The DNS zone must point mail at OX, otherwise connections go to the web VPS and
@@ -146,7 +148,7 @@ JWT_SECRET=$(openssl rand -base64 32)
 # SMTP_PORT=587
 # SMTP_USER=...
 # SMTP_PASS=...
-# MAIL_FROM="Elite Forex Hub <no-reply@eliteforexhub.com>"
+# MAIL_FROM="Elite Forex Hub <no-reply@elitequest.net>"
 # ADMIN_EMAIL=you@example.com
 # Optional Pusher real-time notifications:
 # PUSHER_APP_ID=...

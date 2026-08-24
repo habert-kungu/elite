@@ -33,8 +33,8 @@ async function main() {
 
   // Real sends must never carry localhost links.
   if (!ethereal && !process.env.APP_URL && !process.env.DOMAIN) {
-    process.env.APP_URL = "https://eliteforexhub.com"
-    console.log("APP_URL not set — using https://eliteforexhub.com for links")
+    process.env.APP_URL = "https://elitequest.net"
+    console.log("APP_URL not set — using https://elitequest.net for links")
   }
 
   // Import after env is set so the transport picks it up.

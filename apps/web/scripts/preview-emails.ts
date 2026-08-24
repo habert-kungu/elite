@@ -9,7 +9,7 @@ import { join } from "node:path"
 async function main() {
   const out = process.argv[2] || ".email-previews"
   mkdirSync(out, { recursive: true })
-  if (!process.env.APP_URL && !process.env.DOMAIN) process.env.APP_URL = "https://eliteforexhub.com"
+  if (!process.env.APP_URL && !process.env.DOMAIN) process.env.APP_URL = "https://elitequest.net"
   const { sampleTemplates } = await import("../lib/mail")
   const index: string[] = []
   for (const t of sampleTemplates()) {

@@ -1,5 +1,5 @@
 # Automatic HTTPS via Let's Encrypt. DOMAIN is injected by docker-compose
-# (e.g. DOMAIN=eliteforexhub.com). Caddy obtains certs on first request once the
+# (e.g. DOMAIN=elitequest.net). Caddy obtains certs on first request once the
 # domain's DNS points at this server and ports 80/443 are reachable.
 {$DOMAIN} {
 	encode zstd gzip
