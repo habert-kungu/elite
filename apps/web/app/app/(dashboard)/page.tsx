@@ -1,33 +1,27 @@
 "use client"
 
-
-import { Card } from "@/components/ui"
 import * as React from "react"
 import Link from "next/link"
+import { Badge, ButtonLink, Card, EmptyState, Segmented, Skeleton } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
+import { SELECTABLE_PLANS, formatPlanAmount, planCurrency, planFor, poolLabel } from "@/lib/trading"
+import { IconArrowDownLeft, IconArrowUpRight, IconChartLine, IconChevronRight, IconClockHour4, IconMinus } from "@tabler/icons-react"
 
-function StatCard({ label, value, icon, change, positive, index = 0 }: { label: string; value: string; icon: string; change?: string; positive?: boolean; index?: number }) {
+function money(n: number, digits = 0) {
+  return n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+}
+
+/** One cell of the account summary strip (Reports → summary row). */
+function SummaryCell({ label, value, tone, hint }: { label: string; value: string; tone?: "success" | "danger"; hint?: React.ReactNode }) {
+  const color = tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : "text-foreground"
   return (
-    <Card className="p-3 sm:p-5 animate-fade-up" style={{ animationDelay: `${index * 70}ms` }}>
-      <div className="flex items-start justify-between mb-2 sm:mb-3">
-        <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            {icon === "wallet" && <><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></>}
-            {icon === "trending" && <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>}
-            {icon === "clock" && <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>}
-            {icon === "chart" && <><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></>}
-          </svg>
-        </div>
-        {change && (
-          <span className={`text-[10px] sm:text-[11px] font-medium px-1.5 sm:px-2 py-0.5 rounded-full ${positive ? 'bg-[var(--bg-success)] text-[var(--color-success)]' : 'bg-[var(--bg-danger)] text-[var(--destructive)]'}`}>
-            {change}
-          </span>
-        )}
-      </div>
-      <div className="text-[11px] sm:text-[12px] text-muted-foreground mb-1 font-medium">{label}</div>
-      <div className="text-lg sm:text-xl font-medium tabular-nums text-foreground">{value}</div>
-    </Card>
+    <div className="min-w-0 px-4 py-4 sm:px-6">
+      <div className="text-[12px] leading-[18px] text-less">{label}</div>
+      <div className={`mt-0.5 truncate text-[20px] font-bold leading-[30px] tabular-nums md:text-[24px] md:leading-9 ${color}`}>{value}</div>
+      {hint && <div className="text-[12px] leading-[18px] text-less">{hint}</div>}
+    </div>
   )
 }
 
@@ -133,9 +127,14 @@ interface UserStats {
   totalInvested: number
   totalProfit: number
   pendingReturns: number
+  /** Total staked on BTC-denominated plans; excluded from the USD totals. */
+  btcInvested?: number
   activeCycles: {
     id: string
     pool: string
+    planName?: string
+    currency?: "USD" | "BTC"
+    durationDays?: number
     roi?: number
     startValue: number
     currentValue: number
@@ -172,6 +171,14 @@ export default function DashboardPage() {
   const activeCycle = activeCycles.find((c) => c.id === selectedCycleId) ?? activeCycles[0]
 
   const hasActiveCycle = !!activeCycle
+  // Cycle values follow the plan's currency: USD plans keep "$1,234", the
+  // BTC plan renders "₿1.2345".
+  const cyclePool = activeCycle?.pool ?? "daily"
+  const isBtcCycle = (activeCycle?.currency ?? planCurrency(cyclePool)) === "BTC"
+  /** Cycle amount with its currency symbol. */
+  const cv = (n: number, digits = 0) => (isBtcCycle ? formatPlanAmount(n, cyclePool, 4) : `$${money(n, digits)}`)
+  /** Same, without a symbol for USD (chart pills/axis). */
+  const cvNum = (n: number, digits = 0) => (isBtcCycle ? formatPlanAmount(n, cyclePool, 4) : money(n, digits))
 
   // Number of points rendered depends on the selected timeframe.
   const pointsForPeriod = POINTS_BY_PERIOD[timePeriod] ?? 48
@@ -217,7 +224,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     if (!hasActiveCycle || !activeCycle) return
-    const durationMs = (activeCycle.pool === "daily" ? 2 : 7) * 24 * 60 * 60 * 1000
+    const durationMs = (activeCycle.durationDays ?? planFor(activeCycle.pool).durationDays) * 24 * 60 * 60 * 1000
     const ratePerMs = 100 / durationMs
     const tickMs = TICK_MS_BY_PERIOD[timePeriod] ?? 1000
     const id = setInterval(() => {
@@ -271,408 +278,323 @@ export default function DashboardPage() {
   const currentTopPct = (yFor(currentDisplayValue) / 200) * 100
   const entryTopPct = (yFor(startValue) / 200) * 100
 
+
+  // Line colour follows the position: teal while above entry, coral below.
+  const inProfit = currentDisplayValue >= startValue
+  const lineColor = inProfit ? "var(--chart-up)" : "var(--chart-down)"
+  const profitAbs = Math.abs(Math.round(currentDisplayValue - startValue))
+  const roi = activeCycle ? activeCycle.roi ?? Math.round((activeCycle.targetValue / (activeCycle.startValue || 1)) * 10) / 10 : 0
+  const firstName = user?.name?.split(" ")[0]
+
   if (loading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
-          ))}
-        </div>
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-24 w-full rounded-[16px]" />
+        <Skeleton className="h-[420px] w-full rounded-[16px]" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-row items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1 truncate">Here's your portfolio overview.</p>
-        </div>
-        <Link
-          href="/app/investments"
-          className="inline-flex flex-shrink-0 items-center gap-1 rounded-lg bg-[var(--color-success)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 sm:text-sm"
-        >
-          + Invest
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={firstName ? `Hi, ${firstName}` : "Overview"}
+        description="Your portfolio, open cycle and recent activity at a glance."
+        actions={
+          <>
+            <ButtonLink href="/app/withdraw" variant="secondary" size="sm" className="hidden sm:inline-flex">
+              Withdraw
+            </ButtonLink>
+            <ButtonLink href="/app/investments" size="sm">
+              Trade
+            </ButtonLink>
+          </>
+        }
+      />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-        <StatCard 
-          label="Total Assets" index={0} 
-          value={`$${(stats?.totalAssets || 0).toLocaleString()}`} 
-          icon="wallet" 
+      {/* Account summary strip */}
+      <Card className="grid grid-cols-2 divide-y divide-[var(--background-hover)] sm:divide-y-0 sm:divide-x lg:grid-cols-4 animate-fade-up">
+        <SummaryCell label="Total assets" value={`$${money(stats?.totalAssets || 0, 2)}`} hint="USD" />
+        <SummaryCell
+          label="Invested"
+          value={`$${money(stats?.totalInvested || 0)}`}
+          hint={
+            <>
+              {`${activeCycles.length} open cycle${activeCycles.length === 1 ? "" : "s"}`}
+              {(stats?.btcInvested || 0) > 0 && (
+                <span className="block text-brand">+ {formatPlanAmount(stats?.btcInvested || 0, "premium12")} in Premium</span>
+              )}
+            </>
+          }
         />
-        <StatCard 
-          label="Invested" index={1} 
-          value={`$${(stats?.totalInvested || 0).toLocaleString()}`} 
-          icon="trending" 
-        />
-        <StatCard 
-          label="Pending Returns" index={2} 
-          value={`$${(stats?.pendingReturns || 0).toLocaleString()}`} 
-          icon="clock" 
-        />
-        <StatCard 
-          label="Total Profit" index={3} 
-          value={`$${(stats?.totalProfit || 0).toLocaleString()}`} 
-          icon="chart" 
-        />
-      </div>
+        <SummaryCell label="Pending returns" value={`$${money(stats?.pendingReturns || 0)}`} hint="Paid at cycle end" />
+        <SummaryCell label="Total profit" value={`${(stats?.totalProfit || 0) >= 0 ? "+" : "-"}$${money(Math.abs(stats?.totalProfit || 0))}`} tone={(stats?.totalProfit || 0) >= 0 ? "success" : "danger"} hint="All time" />
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-8 space-y-6">
-          {/* Active Cycle */}
-          {activeCycles.length > 1 && (
-            <div className="flex flex-wrap gap-1.5">
-              {activeCycles.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelectedCycleId(c.id)}
-                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                    c.id === activeCycle?.id ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {c.pool === 'daily' ? '48H' : 'Weekly'} · ${Math.round(c.startValue).toLocaleString()} · {Math.round(c.progress)}%
-                </button>
-              ))}
-            </div>
-          )}
-          {activeCycle && (
-            <Card className="p-4 sm:p-6 overflow-hidden relative animate-fade-up" style={{ animationDelay: "120ms" }}>
-              <div className="absolute inset-0 bg-gradient-to-r from-[oklch(0.62_0.12_178)/5] via-transparent to-[oklch(0.62_0.12_178)/10]" />
-              <div className="relative">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-                  <div>
-                    <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-[oklch(0.62_0.12_178)/15] text-[oklch(0.62_0.12_178)] rounded-full text-[10px] sm:text-xs font-medium">
-                        <span className="w-1.5 h-1.5 bg-[oklch(0.62_0.12_178)] rounded-full animate-pulse" />
-                        Active
-                      </span>
-                      <span className="text-[10px] sm:text-xs text-muted-foreground">
-                        {activeCycle.pool === 'daily' ? '48H Pool' : 'Weekly Pool'}
-                      </span>
-                    </div>
-                    <h2 className="text-base sm:text-lg font-semibold text-foreground">Cycle Progress</h2>
-                  </div>
-                  <div className="text-right sm:ml-4">
-                    <div className="text-2xl sm:text-3xl font-medium tabular-nums text-foreground">${Math.round(currentDisplayValue).toLocaleString()}</div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground">of ${Math.round(activeCycle.targetValue).toLocaleString()}</div>
-                  </div>
-                </div>
+      {/* Trading panel: open cycle + live chart */}
+      <Card className="overflow-hidden animate-fade-up" style={{ animationDelay: "80ms" }}>
+        {/* Cycle tabs (bordered tabs) when more than one is open */}
+        {activeCycles.length > 1 && (
+          <div role="tablist" className="tabs overflow-x-auto px-2">
+            {activeCycles.map((c) => (
+              <button key={c.id} role="tab" type="button" aria-selected={c.id === activeCycle?.id} className="tab" onClick={() => setSelectedCycleId(c.id)}>
+                {c.planName ?? poolLabel(c.pool, true)} · {formatPlanAmount(c.startValue, c.pool, planCurrency(c.pool) === "BTC" ? 4 : 0)}
+              </button>
+            ))}
+          </div>
+        )}
 
-                {/* Progress Bar */}
-                <div className="mb-8">
-                  <div className="h-2 bg-[oklch(0.62_0.12_178)/20 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-[oklch(0.62_0.12_178)] rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(activeCycle.progress, 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                    <span>Started</span>
-                    <span>{Math.round(activeCycle.progress)}% Complete</span>
-                    <span>Target</span>
-                  </div>
-                </div>
-
-                {/* Start New Investment */}
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground">
-                    ROI: <span className="text-[oklch(0.62_0.12_178)] font-medium">{activeCycle.roi ?? Math.round((activeCycle.targetValue / (activeCycle.startValue || 1)) * 10) / 10}x</span>
-                  </div>
-                  <Link 
-                    href="/app/investments"
-                    className="flex items-center gap-2 px-4 py-2 bg-[oklch(0.62_0.12_178)] text-white rounded-lg text-xs font-medium hover:opacity-90 transition-all"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    Start Investing
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Chart - TradingView Style */}
-          <Card className="p-4 sm:p-6 overflow-hidden animate-fade-up" style={{ animationDelay: "180ms" }}>
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-              <div className="flex items-center gap-3">
-                <h3 className="text-sm sm:text-base font-semibold text-foreground">Portfolio Chart</h3>
-                <span className="text-[10px] px-2 py-0.5 bg-[oklch(0.62_0.12_178)/12] text-[oklch(0.62_0.12_178)] rounded font-mono">USDT</span>
-              </div>
-              
-              {/* Time Period Selector */}
-              <div className="flex items-center gap-1 p-1 bg-secondary/50 rounded-lg">
-                {TIME_PERIODS.map((period) => (
-                  <button
-                    key={period.value}
-                    onClick={() => setTimePeriod(period.value)}
-                    className={`px-2 sm:px-2.5 py-1 text-[10px] sm:text-xs font-mono rounded transition-all ${
-                      timePeriod === period.value
-                        ? 'bg-[oklch(0.62_0.12_178)] text-white'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                    }`}
-                  >
-                    {period.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Chart Area */}
-            <div className="relative h-48 sm:h-64">
-              {!hasActiveCycle ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <svg className="w-10 h-10 mx-auto mb-2 text-muted-foreground/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M3 3v18h18"/>
-                      <path d="M18 9l-5 5-4-4-3 3"/>
-                    </svg>
-                    <p className="text-sm text-muted-foreground">No active investment</p>
-                    <Link href="/app/investments" className="text-xs text-[oklch(0.62_0.12_178)] hover:underline mt-1 inline-block">
-                      Start investing →
-                    </Link>
-                  </div>
-                </div>
-              ) : (
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {activeCycle ? (
                 <>
-                  {/* Crosshair tooltip */}
-                  {hoveredPoint && (
-                    <div
-                      className="pointer-events-none absolute z-10 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] text-background sm:text-xs"
-                      style={{ left: `${Math.min(88, Math.max(12, hoveredPoint.x))}%`, top: `calc(${hoveredPoint.y}% - 30px)` }}
-                    >
-                      ${hoveredPoint.value.toLocaleString()} · {hoveredPoint.time}
-                    </div>
-                  )}
-                  
-                  <svg
-                    className="h-full w-full"
-                    viewBox="0 0 300 200"
-                    preserveAspectRatio="none"
-                    onMouseLeave={() => setHoveredPoint(null)}
-                  >
-                    {/* Grid lines */}
-                    {[40, 80, 120, 160].map((y) => (
-                      <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="var(--chart-grid)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-                    ))}
-
-                    <defs>
-                      <linearGradient id="tvAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--chart-accent)" stopOpacity="0.20" />
-                        <stop offset="100%" stopColor="var(--chart-accent)" stopOpacity="0" />
-                      </linearGradient>
-                      {/* Left-to-right reveal of line + fill (width animates 0 → 300). */}
-                      <clipPath id="chartReveal">
-                        <rect key={`reveal-${timePeriod}-${activeCycle?.id}`} className="chart-reveal" x="0" y="0" width="300" height="200" />
-                      </clipPath>
-                    </defs>
-
-                    {/* Entry reference line (horizontal at the start value) */}
-                    {entryInView && (
-                      <line x1="0" y1={yFor(startValue)} x2="300" y2={yFor(startValue)} stroke="var(--chart-grid)" strokeWidth="1" strokeDasharray="3,4" vectorEffect="non-scaling-stroke" />
-                    )}
-
-                    <g clipPath="url(#chartReveal)">
-                    {/* Realized area fill (start -> now) */}
-                    {chartData.length > 0 && (
-                      <path
-                        d={`M 0 200 ${chartData.map((d, i) => `L ${xForIndex(i).toFixed(2)} ${yFor(d).toFixed(2)}`).join(' ')} L ${progressX.toFixed(2)} 200 Z`}
-                        fill="url(#tvAreaGrad)"
-                      />
-                    )}
-
-                    {/* Realized ticking line (start -> now) */}
-                    {chartData.length > 0 && (
-                      <path
-                        key={`line-${timePeriod}-${activeCycle?.id}`}
-                        d={chartData.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xForIndex(i).toFixed(2)} ${yFor(d).toFixed(2)}`).join(' ')}
-                        fill="none"
-                        stroke="var(--chart-accent)"
-                        strokeWidth="1.5"
-                        vectorEffect="non-scaling-stroke"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    )}
-                    </g>
-
-                    {/* Interactive hover areas */}
-                    {chartData.map((d, i) => {
-                      const x = xForIndex(i)
-                      const y = yFor(d)
-                      return (
-                        <circle
-                          key={i}
-                          cx={x}
-                          cy={y}
-                          r="10"
-                          fill="transparent"
-                          className="cursor-pointer"
-                          onMouseEnter={() => setHoveredPoint({
-                            x: (x / 300) * 100,
-                            y: (y / 200) * 100,
-                            value: d,
-                            time: `${Math.round((i / Math.max(1, chartData.length - 1)) * progress)}%`,
-                          })}
-                        />
-                      )
-                    })}
-                  </svg>
-
-                  {/* Current price marker: pulsing dot at the right edge (HTML overlay) */}
-                  <div className="pointer-events-none absolute right-0 -translate-y-1/2 translate-x-1/2" style={{ top: `${currentTopPct}%`, transition: "top 300ms ease-out" }}>
-                    <span className="absolute inset-0 -m-1.5 animate-ping rounded-full bg-[var(--chart-accent)] opacity-40" />
-                    <span className="relative block h-2.5 w-2.5 rounded-full bg-[var(--chart-accent)] ring-2 ring-card" />
-                  </div>
-
-                  {/* Deriv-style right-edge price pill at the live value */}
-                  <div
-                    className={`pointer-events-none absolute right-0 -translate-y-1/2 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white shadow-sm tabular-nums ${tickUp ? "bg-[var(--color-success)]" : "bg-[var(--destructive)]"}`}
-                    style={{ top: `${currentTopPct}%`, transition: "top 300ms ease-out, background-color 200ms" }}
-                  >
-                    ${currentDisplayValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-
-                  {/* Entry tag: on the reference line while in view, otherwise pinned bottom-left */}
-                  <div
-                    className="pointer-events-none absolute left-1 -translate-y-1/2 rounded bg-card/80 px-1 font-mono text-[9px] text-muted-foreground"
-                    style={{ top: entryInView ? `${entryTopPct}%` : "calc(100% - 8px)" }}
-                  >
-                    Entry ${Math.round(startValue).toLocaleString()}{entryInView ? "" : " ↓"}
-                  </div>
-
-                  {/* Session high (Y-max) label, top-left */}
-                  <div className="pointer-events-none absolute left-1 top-1 rounded bg-card/80 px-1 text-[10px] font-mono text-muted-foreground tabular-nums">
-                    ${Math.round(maxValue).toLocaleString()}
-                  </div>
+                  <Badge tone="success" dot>Open</Badge>
+                  <Badge tone="neutral">{activeCycle.planName ?? poolLabel(activeCycle.pool)}</Badge>
+                  <Badge tone="brand">{roi}x target</Badge>
                 </>
+              ) : (
+                <Badge tone="neutral">No open position</Badge>
               )}
             </div>
-            
-            {/* Chart Stats */}
-            {activeCycle && (
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-border">
-                <div className="flex items-center gap-3 sm:gap-6">
-                  <div>
-                    <div className="text-[9px] sm:text-[10px] uppercase text-muted-foreground font-mono mb-0.5">Current</div>
-                    <div className="text-base sm:text-xl font-medium tabular-nums text-foreground">${Math.round(currentDisplayValue).toLocaleString()}</div>
-                  </div>
-                  <div className="w-px h-6 sm:h-10 bg-border" />
-                  <div>
-                    <div className="text-[9px] sm:text-[10px] uppercase text-muted-foreground font-mono mb-0.5">Profit</div>
-                    <div className={`text-base sm:text-xl font-medium tabular-nums ${currentDisplayValue >= activeCycle.startValue ? "text-[var(--color-success)]" : "text-destructive"}`}>{currentDisplayValue >= activeCycle.startValue ? "+" : "-"}${Math.abs(Math.round(currentDisplayValue - activeCycle.startValue)).toLocaleString()}</div>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right">
-                  <div className="text-[9px] sm:text-[10px] uppercase text-muted-foreground font-mono mb-0.5">Payout</div>
-                  <div className="text-base sm:text-xl font-medium text-foreground">${Math.round(activeCycle.targetValue).toLocaleString()}</div>
-                </div>
+            <div className="flex items-baseline gap-3">
+              <div className="text-[28px] font-bold leading-[34px] tabular-nums text-foreground md:text-[32px] md:leading-10">
+                {activeCycle ? cv(currentDisplayValue, 2) : "$0.00"}
               </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="lg:col-span-4 space-y-3 sm:space-y-4">
-          {/* Quick Actions */}
-          <Card className="p-4 sm:p-5">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-3 sm:mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Link href="/app/investments" className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg bg-[oklch(0.62_0.12_178)] text-white hover:opacity-90 transition-all group">
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                <span className="text-xs sm:text-sm font-medium">Buy Crypto</span>
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-auto opacity-60 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </Link>
-              <Link href="/app/withdraw" className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-border text-foreground hover:bg-secondary hover:border-[oklch(0.62_0.12_178)/30] transition-all group">
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-                </svg>
-                <span className="text-xs sm:text-sm font-medium">Withdraw</span>
-                <span className="ml-auto text-[9px] sm:text-[10px] text-muted-foreground">16.5% fee</span>
-              </Link>
-            </div>
-          </Card>
-
-          {/* Pool Options */}
-          <Card className="p-4 sm:p-5">
-            <h3 className="text-xs sm:text-sm font-semibold text-foreground mb-3 sm:mb-4">Pools</h3>
-            <div className="space-y-2 sm:space-y-3">
-              <Link href="/app/investments" className="block p-3 sm:p-4 rounded-lg border border-border hover:border-[oklch(0.62_0.12_178)/40] hover:bg-secondary/50 transition-all group">
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="text-xs sm:text-sm font-medium text-foreground">48H Pool</span>
-                  <span className="text-[10px] sm:text-xs font-mono text-[oklch(0.62_0.12_178)]">10x</span>
+              {activeCycle && (
+                <div className={`text-[14px] font-bold tabular-nums ${inProfit ? "text-success" : "text-destructive"}`}>
+                  {inProfit ? "+" : "-"}{cv(profitAbs)} ({startValue ? `${inProfit ? "+" : "-"}${Math.abs(((currentDisplayValue - startValue) / startValue) * 100).toFixed(1)}%` : "0%"})
                 </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">48 hours · paid within 48h</p>
-              </Link>
-              <Link href="/app/investments" className="block p-3 sm:p-4 rounded-lg border-2 border-[oklch(0.62_0.12_178)/30 bg-[oklch(0.62_0.12_178)/5] hover:bg-[oklch(0.62_0.12_178)/10 transition-all group relative">
-                <div className="absolute -top-2 right-2 text-[9px] sm:text-[10px] font-medium px-1.5 sm:px-2 py-0.5 bg-[oklch(0.62_0.12_178)] text-white rounded">Popular</div>
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="text-xs sm:text-sm font-medium text-foreground">Weekly Pool</span>
-                  <span className="text-[10px] sm:text-xs font-mono text-[oklch(0.62_0.12_178)]">10x</span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">7 days duration</p>
-              </Link>
-            </div>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card className="p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h3 className="text-xs sm:text-sm font-semibold text-foreground">Recent</h3>
-              <Link href="/app/transactions" className="text-[10px] sm:text-xs text-muted-foreground hover:text-foreground">View All</Link>
-            </div>
-            <div className="space-y-3">
-              {stats?.recentTransactions?.slice(0, 5).map((tx) => {
-                const inflow = tx.type === 'deposit' || tx.type === 'return'
-                const outflow = tx.type === 'withdrawal'
-                const iconWrap = inflow
-                  ? 'bg-[var(--bg-success)] text-[var(--color-success)]'
-                  : outflow
-                  ? 'bg-[var(--bg-danger)] text-destructive'
-                  : 'bg-muted text-muted-foreground'
-                const amountColor = inflow ? 'text-[var(--color-success)]' : outflow ? 'text-destructive' : 'text-foreground'
-                const sign = inflow ? '+' : outflow ? '-' : ''
-                return (
-                  <div key={tx.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`flex h-6 w-6 items-center justify-center rounded-full ${iconWrap}`}>
-                        <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          {inflow
-                            ? <polyline points="20 6 9 17 4 12" />
-                            : outflow
-                            ? <><line x1="12" y1="5" x2="12" y2="19" /><polyline points="5 12 12 19 19 12" /></>
-                            : <><line x1="5" y1="12" x2="19" y2="12" /></>}
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-[11px] capitalize text-foreground sm:text-xs">{tx.type}</div>
-                        <div className="text-[9px] text-muted-foreground sm:text-[10px]">{new Date(tx.createdAt).toLocaleDateString()}</div>
-                      </div>
-                    </div>
-                    <span className={`text-[11px] font-medium sm:text-xs ${amountColor}`}>
-                      {sign}${tx.amount.toLocaleString()}
-                    </span>
-                  </div>
-                )
-              })}
-              {(!stats?.recentTransactions || stats.recentTransactions.length === 0) && (
-                <p className="text-[11px] text-muted-foreground text-center py-4">No recent transactions</p>
               )}
             </div>
-          </Card>
+            <div className="mt-0.5 text-[12px] leading-[18px] text-less">
+              {activeCycle ? `Entry ${cv(startValue)} · Payout ${cv(activeCycle.targetValue)}` : "Open a cycle to start tracking live value."}
+            </div>
+          </div>
+          <Segmented items={TIME_PERIODS.map((p) => ({ value: p.value, label: p.label }))} value={timePeriod} onChange={setTimePeriod} className="self-start" />
         </div>
+
+        {/* Chart Area */}
+        <div className="relative mx-4 h-56 sm:mx-6 sm:h-72">
+          {!hasActiveCycle ? (
+            <EmptyState
+              className="h-full py-0"
+              icon={<IconChartLine className="h-6 w-6" stroke={1.8} />}
+              title="No open cycle"
+              description="Start a plan and your live position will chart here."
+              action={<ButtonLink href="/app/investments" size="sm">Start trading</ButtonLink>}
+            />
+          ) : (
+            <>
+              {hoveredPoint && (
+                <div
+                  className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-[4px] bg-foreground px-2 py-1 text-[12px] font-bold tabular-nums text-background"
+                  style={{ left: `${Math.min(88, Math.max(12, hoveredPoint.x))}%`, top: `calc(${hoveredPoint.y}% - 32px)` }}
+                >
+                  ${hoveredPoint.value.toLocaleString()} · {hoveredPoint.time}
+                </div>
+              )}
+
+              <svg className="h-full w-full" viewBox="0 0 300 200" preserveAspectRatio="none" onMouseLeave={() => setHoveredPoint(null)}>
+                {[40, 80, 120, 160].map((y) => (
+                  <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="var(--chart-grid)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                ))}
+                <defs>
+                  <linearGradient id="tvAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.18" />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity="0" />
+                  </linearGradient>
+                  <clipPath id="chartReveal">
+                    <rect key={`reveal-${timePeriod}-${activeCycle?.id}`} className="chart-reveal" x="0" y="0" width="300" height="200" />
+                  </clipPath>
+                </defs>
+
+                {entryInView && (
+                  <line x1="0" y1={yFor(startValue)} x2="300" y2={yFor(startValue)} stroke="var(--foreground-tertiary)" strokeOpacity="0.6" strokeWidth="1" strokeDasharray="3,4" vectorEffect="non-scaling-stroke" />
+                )}
+
+                <g clipPath="url(#chartReveal)">
+                  {chartData.length > 0 && (
+                    <path
+                      d={`M 0 200 ${chartData.map((d, i) => `L ${xForIndex(i).toFixed(2)} ${yFor(d).toFixed(2)}`).join(" ")} L ${progressX.toFixed(2)} 200 Z`}
+                      fill="url(#tvAreaGrad)"
+                    />
+                  )}
+                  {chartData.length > 0 && (
+                    <path
+                      key={`line-${timePeriod}-${activeCycle?.id}`}
+                      d={chartData.map((d, i) => `${i === 0 ? "M" : "L"} ${xForIndex(i).toFixed(2)} ${yFor(d).toFixed(2)}`).join(" ")}
+                      fill="none"
+                      stroke={lineColor}
+                      strokeWidth="2"
+                      vectorEffect="non-scaling-stroke"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                </g>
+
+                {chartData.map((d, i) => {
+                  const x = xForIndex(i)
+                  const y = yFor(d)
+                  return (
+                    <circle
+                      key={i}
+                      cx={x}
+                      cy={y}
+                      r="10"
+                      fill="transparent"
+                      className="cursor-crosshair"
+                      onMouseEnter={() =>
+                        setHoveredPoint({
+                          x: (x / 300) * 100,
+                          y: (y / 200) * 100,
+                          value: d,
+                          time: `${Math.round((i / Math.max(1, chartData.length - 1)) * progress)}%`,
+                        })
+                      }
+                    />
+                  )
+                })}
+              </svg>
+
+              {/* Live marker */}
+              <div className="pointer-events-none absolute right-0 -translate-y-1/2 translate-x-1/2" style={{ top: `${currentTopPct}%`, transition: "top 300ms ease-out" }}>
+                <span className="absolute inset-0 -m-1.5 animate-ping rounded-full opacity-40" style={{ backgroundColor: lineColor }} />
+                <span className="relative block h-2.5 w-2.5 rounded-full ring-2 ring-[var(--background-secondary)]" style={{ backgroundColor: lineColor }} />
+              </div>
+
+              {/* Right-edge price pill */}
+              <div
+                className={`pointer-events-none absolute right-0 -translate-y-1/2 rounded-[2px] px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white ${tickUp ? "bg-success" : "bg-destructive"}`}
+                style={{ top: `${currentTopPct}%`, transition: "top 300ms ease-out, background-color 200ms" }}
+              >
+                {cvNum(currentDisplayValue, 2)}
+              </div>
+
+              {/* Entry tag */}
+              <div
+                className="pointer-events-none absolute left-0 -translate-y-1/2 rounded-[2px] bg-[var(--background-active)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-foreground"
+                style={{ top: entryInView ? `${entryTopPct}%` : "calc(100% - 10px)" }}
+              >
+                Entry {cvNum(startValue)}{entryInView ? "" : " ↓"}
+              </div>
+
+              <div className="pointer-events-none absolute left-0 top-0 rounded-[2px] px-1 text-[10px] tabular-nums text-less">
+                {cvNum(maxValue)}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Cycle progress + summary */}
+        {activeCycle && (
+          <div className="mx-4 mt-4 border-t-2 border-[var(--background-hover)] pt-4 pb-4 sm:mx-6 sm:pb-6">
+            <div className="mb-4 flex items-center justify-between text-[12px] leading-[18px] text-less">
+              <span>Cycle progress</span>
+              <span className="font-bold text-foreground">{Math.round(activeCycle.progress)}%</span>
+            </div>
+            <div className="h-[3px] overflow-hidden rounded-full bg-[var(--background-active)]">
+              <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${Math.min(activeCycle.progress, 100)}%` }} />
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-[12px] leading-[18px] text-less">Entry</div>
+                <div className="text-[16px] font-bold leading-6 tabular-nums text-foreground">{cv(startValue)}</div>
+              </div>
+              <div>
+                <div className="text-[12px] leading-[18px] text-less">Profit</div>
+                <div className={`text-[16px] font-bold leading-6 tabular-nums ${inProfit ? "text-success" : "text-destructive"}`}>{inProfit ? "+" : "-"}{cv(profitAbs)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[12px] leading-[18px] text-less">Payout</div>
+                <div className="text-[16px] font-bold leading-6 tabular-nums text-foreground">{cv(activeCycle.targetValue)}</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Secondary row */}
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {/* Plans */}
+        <Card className="p-5 animate-fade-up" style={{ animationDelay: "140ms" }}>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-[16px] font-bold leading-6 text-foreground">Plans</h3>
+            <Link href="/app/investments" className="text-[12px] font-bold text-brand hover:underline">Compare</Link>
+          </div>
+          <div className="space-y-2">
+            {SELECTABLE_PLANS.map((p) => {
+              const first = p.tiers[0]!
+              return (
+                <Link key={p.key} href="/app/investments" className="group flex items-center gap-3 rounded-[8px] bg-background p-3 transition-colors hover:bg-hover">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                    <IconClockHour4 className="h-4 w-4" stroke={1.8} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[14px] font-bold text-foreground">{p.name}</span>
+                      {p.popular && <Badge tone="brand">Popular</Badge>}
+                    </div>
+                    <div className="text-[12px] leading-[18px] text-less">{p.tagline}</div>
+                    <div className="text-[12px] leading-[18px] tabular-nums text-brand">
+                      from {formatPlanAmount(first.invest, p.key)} → {formatPlanAmount(first.earn, p.key)}
+                    </div>
+                  </div>
+                  <IconChevronRight className="h-4 w-4 flex-shrink-0 text-less transition-transform group-hover:translate-x-0.5" stroke={2} />
+                </Link>
+              )
+            })}
+          </div>
+        </Card>
+
+        {/* Recent activity */}
+        <Card className="p-5 animate-fade-up" style={{ animationDelay: "200ms" }}>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-[16px] font-bold leading-6 text-foreground">Recent activity</h3>
+            <Link href="/app/transactions" className="text-[12px] font-bold text-brand hover:underline">View all</Link>
+          </div>
+          <div className="divide-y divide-[var(--background-hover)]">
+            {stats?.recentTransactions?.slice(0, 5).map((tx) => {
+              const inflow = tx.type === "deposit" || tx.type === "return"
+              const outflow = tx.type === "withdrawal"
+              const Glyph = inflow ? IconArrowDownLeft : outflow ? IconArrowUpRight : IconMinus
+              const wrap = inflow ? "bg-success-soft text-success" : outflow ? "bg-danger-soft text-destructive" : "bg-hover text-less"
+              const amountColor = inflow ? "text-success" : outflow ? "text-destructive" : "text-foreground"
+              const sign = inflow ? "+" : outflow ? "-" : ""
+              return (
+                <div key={tx.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${wrap}`}>
+                    <Glyph className="h-4 w-4" stroke={2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] capitalize text-foreground">{tx.type}</div>
+                    <div className="text-[12px] leading-[18px] text-less">{new Date(tx.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>
+                  </div>
+                  <span className={`text-[14px] font-bold tabular-nums ${amountColor}`}>{sign}${money(tx.amount)}</span>
+                </div>
+              )
+            })}
+            {(!stats?.recentTransactions || stats.recentTransactions.length === 0) && (
+              <p className="py-6 text-center text-[12px] text-less">No transactions yet</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Quick actions */}
+        <Card className="p-5 animate-fade-up md:col-span-2 xl:col-span-1" style={{ animationDelay: "260ms" }}>
+          <h3 className="mb-4 text-[16px] font-bold leading-6 text-foreground">Quick actions</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <ButtonLink href="/app/investments" block>Deposit</ButtonLink>
+            <ButtonLink href="/app/withdraw" variant="secondary" block>Withdraw</ButtonLink>
+            <ButtonLink href="/app/explore" variant="tertiary" block>Markets</ButtonLink>
+            <ButtonLink href="/app/support" variant="tertiary" block>Help centre</ButtonLink>
+          </div>
+          <p className="mt-4 text-[12px] leading-[18px] text-less">
+            Deposits are credited once confirmed. Withdrawals are reviewed within 24 hours.
+          </p>
+        </Card>
       </div>
     </div>
   )

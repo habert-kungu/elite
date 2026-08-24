@@ -3,9 +3,9 @@ import { test, expect } from "@playwright/test"
 test.describe("Password recovery", () => {
   test("login page links to forgot password", async ({ page }) => {
     await page.goto("/login")
-    await page.getByRole("link", { name: "Forgot?" }).click()
+    await page.getByRole("link", { name: "Forgot password?" }).click()
     await expect(page).toHaveURL("/forgot-password")
-    await expect(page.getByRole("heading", { name: "Reset password" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Forgot your password?" })).toBeVisible()
   })
 
   test("forgot password always reports success (no account enumeration)", async ({ page }) => {

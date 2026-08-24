@@ -1,9 +1,9 @@
 "use client"
 
-
-import { Card } from "@/components/ui"
 import * as React from "react"
-import Link from "next/link"
+import { Badge, Card, buttonClass } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
+import { IconBellRinging, IconBrandTelegram, IconCheck, IconSchool, IconVideo } from "@tabler/icons-react"
 
 const SERVICES = [
   {
@@ -19,6 +19,7 @@ const SERVICES = [
       "Session recording",
     ],
     popular: false,
+    icon: IconVideo,
   },
   {
     name: "Crypto Mentorship",
@@ -34,6 +35,7 @@ const SERVICES = [
       "Portfolio review",
     ],
     popular: true,
+    icon: IconSchool,
   },
   {
     name: "VIP Signals",
@@ -48,90 +50,60 @@ const SERVICES = [
       "VIP-only group",
     ],
     popular: false,
+    icon: IconBellRinging,
   },
 ]
 
 export default function ServicesPage() {
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center sm:gap-0">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
-            Services
-          </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-            Premium offerings to boost your trading
-          </p>
-        </div>
-        <Link
-          href="/app"
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Services" description="Premium offerings to sharpen your trading. Every service is delivered one-to-one over Telegram." />
 
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 lg:gap-6">
-        {SERVICES.map((service, i) => (
-          <Card
-            key={i}
-            className={`flex flex-col p-4 sm:p-5 lg:p-6 ${service.popular ? "border-[oklch(0.21_0_0)] ring-1 ring-[oklch(0.21_0_0)]" : ""}`}
-          >
-            {service.popular && (
-              <div className="mb-3 inline-block w-fit rounded-full bg-[oklch(0.21_0_0)] px-2 py-0.5 text-[10px] font-medium text-[oklch(1_0_180)] sm:text-xs">
-                Most Popular
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {SERVICES.map((service, i) => {
+          const Glyph = service.icon
+          return (
+            <Card key={i} className="flex flex-col p-5 animate-fade-up sm:p-6" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                  <Glyph className="h-5 w-5" stroke={1.8} />
+                </div>
+                {service.popular && <Badge tone="brand">Most popular</Badge>}
               </div>
-            )}
-            <h3 className="mb-2 text-sm font-semibold text-foreground sm:text-base">
-              {service.name}
-            </h3>
-            <p className="mb-3 flex-grow text-[11px] text-muted-foreground sm:mb-4 sm:text-sm">
-              {service.description}
-            </p>
 
-            <div className="mb-4 sm:mb-5">
-              <span className="text-xl font-bold text-foreground sm:text-2xl lg:text-3xl">
-                {service.price}
-              </span>
-              <span className="ml-1.5 text-[10px] text-muted-foreground sm:ml-2 sm:text-xs">
-                {service.period}
-              </span>
-            </div>
+              <h3 className="mt-4 text-[16px] font-bold leading-6 text-foreground">{service.name}</h3>
+              <p className="mt-1 text-[12px] leading-[18px] text-less md:text-[14px] md:leading-5">{service.description}</p>
 
-            <ul className="mb-4 space-y-2 sm:mb-6 sm:space-y-3">
-              {service.features.map((feature, j) => (
-                <li
-                  key={j}
-                  className="flex items-start gap-2 text-[10px] text-muted-foreground sm:text-xs"
-                >
-                  <svg
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[oklch(0.62_0.12_178)] sm:h-4 sm:w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  {feature}
-                </li>
-              ))}
-            </ul>
+              <div className="mt-4 flex items-baseline gap-1.5">
+                <span className="text-[24px] font-bold leading-9 tabular-nums text-foreground md:text-[32px] md:leading-10">{service.price}</span>
+                <span className="text-[12px] leading-[18px] text-less">{service.period}</span>
+              </div>
 
-            <a
-              href="https://t.me/khan_bashiri"
-              target="_blank"
-              className={`mt-auto block rounded-lg py-2.5 text-center text-xs font-medium transition-all sm:py-3 sm:text-sm ${
-                service.popular
-                  ? "bg-[oklch(0.21_0_0)] text-[oklch(1_0_180)] hover:opacity-90"
-                  : "bg-secondary text-foreground hover:bg-[oklch(0.21_0_0)/10]"
-              }`}
-            >
-              Contact via Telegram
-            </a>
-          </Card>
-        ))}
+              <ul className="mt-4 flex-1 space-y-2.5">
+                {service.features.map((feature, j) => (
+                  <li key={j} className="flex items-start gap-2 text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">
+                    <IconCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-success" stroke={2} />
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+
+              <a
+                href="https://t.me/khan_bashiri"
+                target="_blank"
+                className={buttonClass({ variant: service.popular ? "primary" : "secondary", block: true, className: "mt-6" })}
+              >
+                <IconBrandTelegram className="h-4 w-4" stroke={1.8} />
+                Contact via Telegram
+              </a>
+            </Card>
+          )
+        })}
       </div>
+
+      <p className="text-[12px] leading-[18px] text-less">
+        Prices are in USD. Services are billed separately from plan deposits and do not affect your account balance.
+      </p>
     </div>
   )
 }

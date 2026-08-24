@@ -31,27 +31,27 @@ export function CryptoChart({ coin = "BTC", showSelector = true }: CryptoChartPr
   
   const getColor = (c: CoinSymbol) => {
     switch(c) {
-      case "BTC": return "#F7931A"
-      case "ETH": return "#627EEA"
-      case "SOL": return "#9945FF"
-      default: return "#3B82F6"
+      case "BTC": return "var(--primary)"
+      case "ETH": return "var(--chart-up)"
+      case "SOL": return "var(--info)"
+      default: return "var(--primary)"
     }
   }
 
   const coinKey = selectedCoin.toLowerCase() as "btc" | "eth" | "sol"
 
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
+    <div className="d-card p-4">
       {showSelector && (
         <div className="flex items-center gap-2 mb-4">
           {(coinData as { symbol: CoinSymbol }[]).map((c) => (
             <button
               key={c.symbol}
               onClick={() => setSelectedCoin(c.symbol)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                selectedCoin === c.symbol 
-                  ? "bg-accent text-white" 
-                  : "bg-muted text-secondary hover:text-primary"
+              className={`rounded-[4px] px-3 py-1.5 text-xs font-bold transition-colors ${
+                selectedCoin === c.symbol
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-hover text-less hover:text-foreground"
               }`}
             >
               {c.symbol}
@@ -69,15 +69,15 @@ export function CryptoChart({ coin = "BTC", showSelector = true }: CryptoChartPr
                 <stop offset="100%" stopColor={getColor(selectedCoin)} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8E8EC" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
             <XAxis 
               dataKey="time" 
-              tick={{ fontSize: 10, fill: '#9CA3AF' }} 
+              tick={{ fontSize: 10, fill: 'var(--foreground-tertiary)' }} 
               axisLine={false}
               tickLine={false}
             />
             <YAxis 
-              tick={{ fontSize: 10, fill: '#9CA3AF' }} 
+              tick={{ fontSize: 10, fill: 'var(--foreground-tertiary)' }} 
               axisLine={false}
               tickLine={false}
               domain={['auto', 'auto']}
@@ -85,8 +85,8 @@ export function CryptoChart({ coin = "BTC", showSelector = true }: CryptoChartPr
             />
             <Tooltip 
               contentStyle={{ 
-                background: '#FFFFFF', 
-                border: '1px solid #E8E8EC',
+                background: 'var(--background)', 
+                border: '1px solid var(--background-hover)',
                 borderRadius: '6px',
                 fontSize: '12px'
               }}
@@ -105,15 +105,15 @@ export function CryptoChart({ coin = "BTC", showSelector = true }: CryptoChartPr
 
       <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
         <div>
-          <span className="text-sm font-medium text-primary">
+          <span className="text-sm font-medium text-brand">
             {selectedCoin === "BTC" ? "Bitcoin" : selectedCoin === "ETH" ? "Ethereum" : "Solana"}
           </span>
         </div>
         <div className="text-right">
-          <span className="text-sm font-medium text-primary">
+          <span className="text-sm font-medium text-brand">
             {coinData.find(c => c.symbol === selectedCoin)?.price}
           </span>
-          <span className={`text-xs ml-2 ${coinData.find(c => c.symbol === selectedCoin)?.positive ? 'text-green-600' : 'text-red-600'}`}>
+          <span className={`text-xs ml-2 ${coinData.find(c => c.symbol === selectedCoin)?.positive ? 'text-success' : 'text-destructive'}`}>
             {coinData.find(c => c.symbol === selectedCoin)?.change}
           </span>
         </div>
@@ -127,9 +127,9 @@ export function MarketTicker() {
     <div className="flex items-center gap-6 overflow-x-auto py-2">
       {coinData.map((coin) => (
         <div key={coin.symbol} className="flex items-center gap-2 whitespace-nowrap">
-          <span className="text-sm font-medium text-primary">{coin.symbol}</span>
+          <span className="text-sm font-medium text-brand">{coin.symbol}</span>
           <span className="text-sm text-secondary">{coin.price}</span>
-          <span className={`text-xs ${coin.positive ? 'text-green-600' : 'text-red-600'}`}>
+          <span className={`text-xs ${coin.positive ? 'text-success' : 'text-destructive'}`}>
             {coin.change}
           </span>
         </div>

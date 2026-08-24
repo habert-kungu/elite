@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { AuthShell, authInputCls, authButtonCls } from "@/app/components/auth-shell"
+import { Button, Notice, TextField } from "@/components/ui"
+import { AuthFooter, AuthShell, authLinkCls } from "@/app/components/auth-shell"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = React.useState("")
@@ -31,37 +32,42 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthShell heading="Forgot your password?" tagline="No problem — we'll email you a secure link to choose a new one." title="Reset password" subtitle="Enter the email on your account">
+    <AuthShell heading="Forgot your password?" tagline="No problem — we'll email you a secure link to choose a new one." title="Forgot your password?" subtitle="Enter the email on your account and we'll send you a secure link to choose a new one.">
       {sent ? (
         <div className="space-y-4">
-          <div className="rounded-lg border border-[var(--color-success)]/25 bg-[var(--bg-success)] p-4 text-sm text-foreground">
-            <p className="font-medium">Check your inbox</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              If an account exists for <strong className="text-foreground">{email}</strong>, a reset link is on its way. It expires in 1 hour.
+          <Notice tone="success">
+            <p className="font-bold">Check your inbox</p>
+            <p className="mt-1 text-less">
+              If an account exists for <strong className="font-bold text-foreground">{email}</strong>, a reset link is on its way. It expires in 1 hour.
             </p>
-          </div>
-          <button onClick={() => setSent(false)} className="text-xs text-muted-foreground hover:text-foreground">
-            Didn't get it? Try again
-          </button>
+          </Notice>
+          <Button type="button" variant="tertiary" size="sm" onClick={() => setSent(false)}>
+            Didn&apos;t get it? Try again
+          </Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-3 text-xs text-destructive">{error}</div>}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-foreground">Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className={authInputCls} required autoFocus />
-          </div>
-          <button type="submit" disabled={loading} className={authButtonCls}>
+          {error && <Notice tone="danger">{error}</Notice>}
+          <TextField
+            label="Email"
+            name="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@example.com"
+            autoComplete="email"
+            required
+            autoFocus
+          />
+          <Button type="submit" block loading={loading}>
             {loading ? "Sending…" : "Send reset link"}
-          </button>
+          </Button>
         </form>
       )}
-      <div className="mt-5 text-center">
-        <p className="text-sm text-muted-foreground">
-          Remembered it?{" "}
-          <Link href="/login" className="font-medium text-foreground hover:underline">Sign in</Link>
-        </p>
-      </div>
+      <AuthFooter>
+        Remembered it?{" "}
+        <Link href="/login" className={authLinkCls}>Sign in</Link>
+      </AuthFooter>
     </AuthShell>
   )
 }

@@ -1,10 +1,30 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { calculateRoi, calculateTargetReturn } from "../lib/trading"
 
 const prisma = new PrismaClient()
 
+const DEMO_EMAILS = ["admin@nextlevel.com", "test@nextlevel.com"]
+
+/**
+ * Clear the demo accounts' portfolio rows so re-seeding replaces the sample
+ * data instead of stacking another copy on top of it. Only the two seeded
+ * accounts are touched — real signups keep their records.
+ */
+async function resetDemoPortfolios() {
+  const demo = await prisma.user.findMany({ where: { email: { in: DEMO_EMAILS } }, select: { id: true } })
+  if (demo.length === 0) return
+  const userId = { in: demo.map((u) => u.id) }
+  await prisma.cycle.deleteMany({ where: { userId } })
+  await prisma.investment.deleteMany({ where: { userId } })
+  await prisma.transaction.deleteMany({ where: { userId } })
+  console.log(`Cleared previous sample data for ${demo.length} demo account(s)`)
+}
+
 async function main() {
   console.log("Seeding database...")
+
+  await resetDemoPortfolios()
 
   // Create admin user
   const adminPassword = await bcrypt.hash("admin123", 10)
@@ -36,28 +56,44 @@ async function main() {
   })
   console.log("Created test user:", testUser.email)
 
-  // Create some sample investments for test user
+  // Sample investments across the live plans (roi comes from each plan's payout table)
   const investment1 = await prisma.investment.create({
     data: {
       userId: testUser.id,
       pool: "daily",
-      amount: 100,
+      amount: 500,
       network: "TRC20",
+      currency: "USDT",
       txHash: "0xabc123",
       status: "active",
-      roi: 10,
+      roi: calculateRoi(500, "daily"),
     },
   })
 
   const investment2 = await prisma.investment.create({
     data: {
       userId: testUser.id,
-      pool: "weekly",
-      amount: 500,
+      pool: "pro5",
+      amount: 2000,
       network: "TRC20",
+      currency: "USDT",
       txHash: "0xdef456",
       status: "active",
-      roi: 10,
+      roi: calculateRoi(2000, "pro5"),
+    },
+  })
+
+  // Premium is denominated in BTC and still awaiting review.
+  await prisma.investment.create({
+    data: {
+      userId: testUser.id,
+      pool: "premium12",
+      amount: 1,
+      network: "BTC",
+      currency: "BTC",
+      txHash: "0xbtc789",
+      status: "pending",
+      roi: calculateRoi(1, "premium12"),
     },
   })
   console.log("Created sample investments")
@@ -67,9 +103,9 @@ async function main() {
     data: {
       investmentId: investment1.id,
       userId: testUser.id,
-      startValue: 100,
-      currentValue: 250,
-      targetValue: 1000,
+      startValue: 500,
+      currentValue: 2750,
+      targetValue: calculateTargetReturn(500, "daily"),
       progress: 50,
       status: "active",
     },
@@ -79,9 +115,9 @@ async function main() {
     data: {
       investmentId: investment2.id,
       userId: testUser.id,
-      startValue: 500,
-      currentValue: 1500,
-      targetValue: 5000,
+      startValue: 2000,
+      currentValue: 10400,
+      targetValue: calculateTargetReturn(2000, "pro5"),
       progress: 30,
       status: "active",
     },

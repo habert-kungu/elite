@@ -1,9 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Card } from "@/components/ui"
+import { Badge, Button, Card, CardHeader, Modal, Notice, Select, TextArea, TextField, buttonClass } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
-import { PageHeader, Skeleton, inputCls } from "../_components"
+import { cn } from "@workspace/ui/lib/utils"
+import { IconAlertTriangle, IconCheck, IconCircleCheck, IconExternalLink, IconMailForward, IconSearch, IconX } from "@tabler/icons-react"
+import { Skeleton } from "../_components"
 
 interface MailStatus {
   configured: boolean
@@ -37,40 +40,55 @@ function UserPicker({ selected, onChange }: { selected: PickUser[]; onChange: (u
   const allVisibleOn = visibleIds.length > 0 && visibleIds.every(isOn)
 
   return (
-    <div className="rounded-lg border border-border">
+    <div className="overflow-hidden rounded-[8px] border border-border">
       <div className="flex items-center gap-2 border-b border-border p-2">
-        <input className={inputCls} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search investors by name, email or Telegram…" />
-        <button
+        <TextField
+          className="flex-1"
+          name="picker-search"
+          type="search"
+          aria-label="Search investors"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search investors by name, email or Telegram…"
+          leading={<IconSearch className="h-4 w-4" stroke={1.8} />}
+        />
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
+          className="flex-shrink-0"
           onClick={() => onChange(allVisibleOn ? selected.filter((u) => !visibleIds.includes(u.id)) : [...selected, ...users.filter((u) => !isOn(u.id))])}
-          className="shrink-0 rounded-md border border-border px-2 py-2 text-[11px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           {allVisibleOn ? "Unselect shown" : "Select shown"}
-        </button>
+        </Button>
       </div>
       {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-b border-border p-2">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border p-2">
           {selected.map((u) => (
-            <span key={u.id} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-foreground">
+            <Badge key={u.id} tone="neutral">
               {u.name || u.email}
-              <button type="button" onClick={() => toggle(u)} className="text-muted-foreground hover:text-foreground" aria-label={`Remove ${u.email}`}>✕</button>
-            </span>
+              <button type="button" onClick={() => toggle(u)} className="-mr-1 flex h-4 w-4 items-center justify-center rounded-[2px] text-less hover:text-foreground" aria-label={`Remove ${u.email}`}>
+                <IconX className="h-3 w-3" stroke={2} />
+              </button>
+            </Badge>
           ))}
-          <button type="button" onClick={() => onChange([])} className="px-1 text-[11px] text-muted-foreground hover:text-foreground">Clear</button>
+          <Button type="button" variant="tertiary" size="xs" onClick={() => onChange([])}>
+            Clear
+          </Button>
         </div>
       )}
       <div className="max-h-56 overflow-y-auto">
-        {loading && <p className="p-3 text-xs text-muted-foreground">Loading…</p>}
-        {!loading && users.length === 0 && <p className="p-3 text-xs text-muted-foreground">No users match.</p>}
+        {loading && <p className="p-3 text-[12px] text-less">Loading…</p>}
+        {!loading && users.length === 0 && <p className="p-3 text-[12px] text-less">No users match.</p>}
         {users.map((u) => (
-          <label key={u.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 text-xs hover:bg-secondary/50">
-            <input type="checkbox" checked={isOn(u.id)} onChange={() => toggle(u)} className="h-3.5 w-3.5 accent-[var(--primary)]" />
-            <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground">{(u.name || u.email).charAt(0).toUpperCase()}</span>
+          <label key={u.id} className="flex h-12 cursor-pointer items-center gap-3 px-3 text-[14px] transition-colors hover:bg-hover">
+            <input type="checkbox" checked={isOn(u.id)} onChange={() => toggle(u)} className="h-4 w-4 accent-[var(--primary)]" />
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-active text-[11px] font-bold text-foreground">{(u.name || u.email).charAt(0).toUpperCase()}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium text-foreground">{u.name || "—"}</span>
-              <span className="block truncate text-muted-foreground">{u.email}</span>
+              <span className="block truncate font-bold text-foreground">{u.name || "—"}</span>
+              <span className="block truncate text-[12px] leading-[18px] text-less">{u.email}</span>
             </span>
-            {u.role === "admin" && <span className="rounded bg-[var(--bg-info)] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[var(--color-info)]">Admin</span>}
+            {u.role === "admin" && <Badge tone="info">Admin</Badge>}
           </label>
         ))}
       </div>
@@ -165,50 +183,56 @@ export default function CommunicationsPage() {
   if (loading || !data) return <Skeleton rows={3} />
 
   const ok = data.configured && data.connection.ok
+  const canSend = !(subject.trim().length < 2 || message.trim().length < 2 || (audience === "email" && !email.includes("@")) || (audience === "selected" && selectedUsers.length === 0))
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <PageHeader title="Communications" subtitle="Email delivery status and messages to your users" right={refreshing ? <span className="text-[11px] text-muted-foreground">Checking…</span> : undefined} />
+    <div className="space-y-6">
+      <PageHeader title="Communications" description="Email delivery status and messages to your users" actions={refreshing ? <span className="text-[12px] text-less">Checking…</span> : undefined} />
 
       {/* Status */}
-      <Card className="p-4 sm:p-5">
+      <Card className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${ok ? "bg-[var(--color-success)]" : "bg-[var(--color-warning)]"}`} />
-            <div>
-              <div className="text-sm font-medium text-foreground">{ok ? "Email delivery is working" : data.configured ? "SMTP configured, but the connection failed" : "Email is not configured"}</div>
-              <div className="mt-0.5 text-xs text-muted-foreground">
+          <div className="flex min-w-0 items-start gap-3">
+            <Badge tone={ok ? "success" : "warning"} dot className="mt-0.5 flex-shrink-0">
+              {ok ? "Connected" : data.configured ? "Connection failed" : "Not configured"}
+            </Badge>
+            <div className="min-w-0">
+              <div className="text-[16px] font-bold leading-6 text-foreground">{ok ? "Email delivery is working" : data.configured ? "SMTP configured, but the connection failed" : "Email is not configured"}</div>
+              <div className="mt-0.5 text-[12px] leading-[18px] text-less md:text-[14px] md:leading-5">
                 {ok
                   ? `Connected to ${data.host}:${data.port}${data.secure ? " (TLS)" : ""}. Sending as ${data.from}.`
                   : data.configured
                     ? data.connection.error
                     : "Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS and MAIL_FROM in the server environment. Until then, every email is printed to the server log instead of delivered."}
               </div>
-              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-[11px] sm:grid-cols-2">
-                <div className="flex gap-2"><dt className="text-muted-foreground">From</dt><dd className="font-mono text-foreground">{data.from}</dd></div>
-                <div className="flex gap-2"><dt className="text-muted-foreground">Links point to</dt><dd className="font-mono text-foreground">{data.appUrl}</dd></div>
-                <div className="flex gap-2"><dt className="text-muted-foreground">Admin notices</dt><dd className="font-mono text-foreground">{data.adminEmail || "— (set ADMIN_EMAIL)"}</dd></div>
-                <div className="flex gap-2"><dt className="text-muted-foreground">Audience</dt><dd className="text-foreground">{data.audience.users} users · {data.audience.admins} admins</dd></div>
+              <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1.5 text-[12px] leading-[18px] sm:grid-cols-2">
+                <div className="flex gap-2"><dt className="flex-shrink-0 text-less">From</dt><dd className="truncate font-mono text-foreground">{data.from}</dd></div>
+                <div className="flex gap-2"><dt className="flex-shrink-0 text-less">Links point to</dt><dd className="truncate font-mono text-foreground">{data.appUrl}</dd></div>
+                <div className="flex gap-2"><dt className="flex-shrink-0 text-less">Admin notices</dt><dd className="truncate font-mono text-foreground">{data.adminEmail || "— (set ADMIN_EMAIL)"}</dd></div>
+                <div className="flex gap-2"><dt className="flex-shrink-0 text-less">Audience</dt><dd className="text-foreground">{data.audience.users} users · {data.audience.admins} admins</dd></div>
               </dl>
             </div>
           </div>
           <div className="flex flex-shrink-0 gap-2">
-            <button onClick={() => refresh()} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Re-check</button>
-            <button onClick={sendTest} disabled={testing} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
+            <Button variant="secondary" size="sm" onClick={() => refresh()}>
+              Re-check
+            </Button>
+            <Button size="sm" onClick={sendTest} loading={testing} disabled={testing}>
               {testing ? "Sending…" : "Send me a test email"}
-            </button>
+            </Button>
           </div>
         </div>
-        {testMsg && <p className={`mt-3 text-xs ${testMsg.ok ? "text-[var(--color-success)]" : "text-destructive"}`}>{testMsg.text}</p>}
+        {testMsg && (
+          <Notice tone={testMsg.ok ? "success" : "danger"} className="mt-4" icon={testMsg.ok ? <IconCircleCheck className="h-4 w-4" stroke={1.8} /> : <IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
+            {testMsg.text}
+          </Notice>
+        )}
       </Card>
 
       {/* Automatic emails */}
-      <Card className="p-4 sm:p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-foreground">Automatic emails</h3>
-          <span className="text-[11px] text-muted-foreground">Click “Preview” to open the template with sample data</span>
-        </div>
-        <ul className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+      <Card className="overflow-hidden">
+        <CardHeader className="p-5 pb-3 sm:px-6" title="Automatic emails" description="Open any template with sample data to check how it renders." />
+        <ul className="divide-y divide-[var(--background-hover)]">
           {[
             ["welcome", "Welcome", "when someone signs up"],
             ["deposit-received", "Deposit received", "to the user as soon as they submit a deposit (pending review)"],
@@ -224,90 +248,103 @@ export default function CommunicationsPage() {
             ["admin-new-deposit", "New deposit request", `to ${data.adminEmail || "ADMIN_EMAIL"} for every submission`],
             ["custom", "Your messages", "what the compose form below sends"],
           ].map(([key, t, d]) => (
-            <li key={key} className="flex items-start gap-2 rounded-lg bg-secondary/40 px-3 py-2">
-              <span className="text-[var(--color-success)]">✓</span>
-              <span className="min-w-0 flex-1"><span className="font-medium text-foreground">{t}</span> — {d}</span>
-              <a href={`/api/admin/mail/preview?key=${key}`} target="_blank" rel="noreferrer" className="shrink-0 font-medium text-foreground hover:underline">Preview</a>
+            <li key={key} className="flex items-center gap-3 px-5 py-2.5 sm:px-6">
+              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-success-soft text-success">
+                <IconCheck className="h-3.5 w-3.5" stroke={2.2} />
+              </span>
+              <span className="min-w-0 flex-1 text-[12px] leading-[18px] md:text-[14px] md:leading-5">
+                <span className="font-bold text-foreground">{t}</span>
+                <span className="text-less"> — {d}</span>
+              </span>
+              <a href={`/api/admin/mail/preview?key=${key}`} target="_blank" rel="noreferrer" className={buttonClass({ variant: "tertiary", size: "xs", className: "flex-shrink-0" })}>
+                Preview
+                <IconExternalLink className="h-3.5 w-3.5" stroke={1.8} />
+              </a>
             </li>
           ))}
         </ul>
       </Card>
 
       {/* Compose */}
-      <Card className="p-4 sm:p-5">
-        <h3 className="mb-1 text-sm font-medium text-foreground">Message your users</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Sent with the AlphaReserve email design. Plain text — a blank line starts a new paragraph.</p>
+      <Card className="p-5 sm:p-6">
+        <CardHeader title="Message your users" description="Sent with the Elite Forex Hub email design. Plain text — a blank line starts a new paragraph." />
 
         {sendMsg && (
-          <div className={`mb-4 rounded-lg border p-3 text-xs ${sendMsg.ok ? "border-[var(--color-success)]/25 bg-[var(--bg-success)] text-foreground" : "border-destructive/25 bg-[var(--bg-danger)] text-destructive"}`}>{sendMsg.text}</div>
+          <Notice tone={sendMsg.ok ? "success" : "danger"} className="mt-4" icon={sendMsg.ok ? <IconCircleCheck className="h-4 w-4" stroke={1.8} /> : <IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
+            {sendMsg.text}
+          </Notice>
         )}
 
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">To</label>
-              <select className={inputCls} value={audience} onChange={(e) => setAudience(e.target.value as Audience)}>
-                <option value="users">All investors ({data.audience.users})</option>
-                <option value="all">Everyone incl. admins ({data.audience.all})</option>
-                <option value="admins">Admins only ({data.audience.admins})</option>
-                <option value="selected">Selected investors{selectedUsers.length ? ` (${selectedUsers.length})` : "…"}</option>
-                <option value="email">A single email address</option>
-              </select>
-            </div>
+        <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select label="To" name="audience" value={audience} onChange={(e) => setAudience(e.target.value as Audience)}>
+              <option value="users">All investors ({data.audience.users})</option>
+              <option value="all">Everyone incl. admins ({data.audience.all})</option>
+              <option value="admins">Admins only ({data.audience.admins})</option>
+              <option value="selected">Selected investors{selectedUsers.length ? ` (${selectedUsers.length})` : "…"}</option>
+              <option value="email">A single email address</option>
+            </Select>
             {audience === "selected" && (
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-foreground">Choose investors</label>
+                <span className="field-label">Choose investors</span>
                 <UserPicker selected={selectedUsers} onChange={setSelectedUsers} />
               </div>
             )}
             {audience === "email" && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-foreground">Email address</label>
-                <input className={inputCls} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
-              </div>
+              <TextField label="Email address" name="recipient" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
             )}
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">Subject</label>
-            <input className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={150} placeholder="e.g. Weekly pool closes Friday" />
+          <TextField label="Subject" name="subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={150} placeholder="e.g. Pro 5 days plan closes Friday" />
+          <TextArea
+            label="Message"
+            name="message"
+            inputClassName="min-h-[160px] resize-y"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            maxLength={5000}
+            placeholder="Hi everyone,&#10;&#10;…"
+            help={<span className="block text-right tabular-nums">{message.length}/5000</span>}
+          />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TextField label="Button label" name="ctaLabel" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} maxLength={60} placeholder="Open dashboard" help="Optional" />
+            <TextField label="Button link" name="ctaUrl" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder={`${data.appUrl}/app`} />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">Message</label>
-            <textarea className={`${inputCls} min-h-[160px] resize-y`} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={5000} placeholder="Hi everyone,&#10;&#10;…" />
-            <div className="mt-1 text-right text-[10px] text-muted-foreground">{message.length}/5000</div>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">Button label <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <input className={inputCls} value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} maxLength={60} placeholder="Open dashboard" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">Button link</label>
-              <input className={inputCls} value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder={`${data.appUrl}/app`} />
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <span className="text-[11px] text-muted-foreground">
+          <div className="flex flex-col gap-3 border-t border-[var(--background-hover)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-[12px] leading-[18px] text-less">
               {ok ? `Will deliver to ${recipientCount} recipient${recipientCount === 1 ? "" : "s"}.` : "Email isn't configured — sends will only be logged on the server."}
             </span>
-            {!confirm ? (
-              <button
-                onClick={() => setConfirm(true)}
-                disabled={subject.trim().length < 2 || message.trim().length < 2 || (audience === "email" && !email.includes("@")) || (audience === "selected" && selectedUsers.length === 0)}
-                className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                Review & send
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-foreground">Send “{subject.trim()}” to {recipientCount} recipient{recipientCount === 1 ? "" : "s"}?</span>
-                <button onClick={() => setConfirm(false)} disabled={sending} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Cancel</button>
-                <button onClick={send} disabled={sending} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">{sending ? "Sending…" : "Send now"}</button>
-              </div>
-            )}
+            <Button onClick={() => setConfirm(true)} disabled={!canSend}>
+              <IconMailForward className="h-4 w-4" stroke={1.8} />
+              Review & send
+            </Button>
           </div>
         </div>
       </Card>
+
+      <Modal
+        open={confirm}
+        onClose={() => !sending && setConfirm(false)}
+        title="Send message"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirm(false)} disabled={sending}>
+              Cancel
+            </Button>
+            <Button onClick={send} loading={sending} disabled={sending}>
+              {sending ? "Sending…" : "Send now"}
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Send <strong className="font-bold text-foreground">“{subject.trim()}”</strong> to {recipientCount} recipient{recipientCount === 1 ? "" : "s"}?
+        </p>
+        {!ok && (
+          <Notice tone="warning" className="mt-4" icon={<IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
+            Email isn't configured, so this will only be logged on the server.
+          </Notice>
+        )}
+      </Modal>
     </div>
   )
 }

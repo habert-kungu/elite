@@ -102,7 +102,7 @@ export function ForexOverview({ onSelect, selected }: { onSelect?: (pair: ForexP
   return (
     <div className="relative">
       {loading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_srgb,var(--background-secondary)_80%,transparent)]">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
         </div>
       )}
@@ -111,20 +111,20 @@ export function ForexOverview({ onSelect, selected }: { onSelect?: (pair: ForexP
           <button
             key={r.pair}
             onClick={() => onSelect?.(r)}
-            className={`rounded-lg p-2 text-left transition-colors sm:p-3 ${selected === r.pair ? "bg-secondary ring-1 ring-foreground/30" : "bg-secondary/40 hover:bg-secondary/70"}`}
+            className={`rounded-[8px] p-3 text-left transition-colors ${selected === r.pair ? "bg-background ring-1 ring-[var(--brand-accent)]" : "bg-background hover:bg-hover"}`}
           >
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-foreground">{r.pair}</span>
-              <span className={`text-[9px] font-semibold tabular-nums ${r.change >= 0 ? "text-[var(--color-success)]" : "text-destructive"}`}>
+              <span className="text-[12px] font-bold text-foreground">{r.pair}</span>
+              <span className={`text-[11px] font-medium tabular-nums ${r.change >= 0 ? "text-success" : "text-destructive"}`}>
                 {r.change >= 0 ? "+" : ""}
                 {r.change.toFixed(2)}%
               </span>
             </div>
-            <div className="font-mono text-[11px] tabular-nums text-foreground sm:text-xs">{r.price ? fmtPrice(r.price, r.digits) : "—"}</div>
+            <div className="text-[14px] font-medium tabular-nums text-foreground">{r.price ? fmtPrice(r.price, r.digits) : "—"}</div>
           </button>
         ))}
       </div>
-      <div className="mb-2 text-center text-[9px] text-muted-foreground">ECB reference rates via Frankfurter · updated daily{latest ? ` · ${latest.date}` : ""}</div>
+      <div className="px-4 pb-3 pt-1 text-[11px] text-less">ECB reference rates via Frankfurter · updated daily{latest ? ` · ${latest.date}` : ""}</div>
     </div>
   )
 }

@@ -17,5 +17,5 @@ if [ -n "$DB_PATH" ]; then
   fi
 fi
 
-echo "→ Starting AlphaReserve on ${HOSTNAME:-0.0.0.0}:${PORT:-3000}"
+echo "→ Starting Elite Forex Hub on ${HOSTNAME:-0.0.0.0}:${PORT:-3000}"
 exec node apps/web/server.js

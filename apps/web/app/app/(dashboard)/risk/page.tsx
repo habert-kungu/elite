@@ -1,6 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { Card, CardHeader, Notice, buttonClass } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
+import { IconBrandTelegram, IconMessage, IconScale, IconShieldCheck, IconShieldLock, IconTargetArrow, IconTrendingDown } from "@tabler/icons-react"
 
 const rules = [
   {
@@ -29,11 +32,13 @@ const rules = [
   },
 ]
 
-const riskCards = [
+type Tone = "red" | "amber" | "green" | "blue"
+
+const riskCards: { title: string; subtitle: string; icon: React.ComponentType<{ className?: string; stroke?: number }>; color: Tone; items: { text: string; status: Tone }[] }[] = [
   {
-    title: "DRAWDOWN CONTROL",
+    title: "Drawdown control",
     subtitle: "Maximum loss limits per cycle",
-    icon: "📉",
+    icon: IconTrendingDown,
     color: "red",
     items: [
       {
@@ -51,9 +56,9 @@ const riskCards = [
     ],
   },
   {
-    title: "POSITION SIZING",
+    title: "Position sizing",
     subtitle: "How each trade size is calculated",
-    icon: "⚖️",
+    icon: IconScale,
     color: "amber",
     items: [
       {
@@ -75,9 +80,9 @@ const riskCards = [
     ],
   },
   {
-    title: "TAKE PROFIT SYSTEM",
+    title: "Take profit system",
     subtitle: "How profits are locked in",
-    icon: "🎯",
+    icon: IconTargetArrow,
     color: "green",
     items: [
       {
@@ -99,9 +104,9 @@ const riskCards = [
     ],
   },
   {
-    title: "CAPITAL SAFEGUARDS",
+    title: "Capital safeguards",
     subtitle: "How your investment is protected",
-    icon: "🔐",
+    icon: IconShieldLock,
     color: "blue",
     items: [
       {
@@ -124,165 +129,95 @@ const riskCards = [
   },
 ]
 
+/** Semantic tokens per tone so the cards work in both themes. */
+const TONE: Record<Tone, { wrap: string; dot: string }> = {
+  red: { wrap: "bg-danger-soft text-destructive", dot: "bg-destructive" },
+  amber: { wrap: "bg-warning-soft text-warning", dot: "bg-warning" },
+  green: { wrap: "bg-success-soft text-success", dot: "bg-success" },
+  blue: { wrap: "bg-info-soft text-info", dot: "bg-info" },
+}
+
 export default function RiskPage() {
   return (
     <div className="space-y-6">
-      <div className="mb-6">
-        <div className="mb-1 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-          Protecting Your Capital
-        </div>
-        <h1 className="text-xl font-medium text-foreground">Risk Management</h1>
-      </div>
+      <PageHeader title="Risk management" description="Protecting your capital: the framework every trade, position and pool cycle follows without exception." />
 
-      <div className="rounded-lg border border-[oklch(0.65_0.15_46/0.2)] bg-[oklch(0.65_0.15_46/0.08)] p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-[oklch(0.65_0.15_46/0.15)]">
-            <svg
-              className="h-4 w-4 text-[oklch(0.645_0.179_45.761)]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-[15px] font-medium text-foreground">
-              Your Capital Is Always Protected
-            </h3>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              AlphaReserve operates under a strict risk management framework.
-              Every trade, every position, and every pool cycle follows these
-              rules without exception.
-            </p>
-          </div>
-        </div>
-      </div>
+      <Notice tone="warning" icon={<IconShieldCheck className="h-4 w-4" stroke={1.8} />}>
+        <span className="font-bold">Your capital is always protected.</span> Elite Forex Hub operates under a strict risk management framework. Every trade, every position, and every pool cycle follows these rules without exception.
+      </Notice>
 
-      <div>
-        <h2 className="mb-3 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
-          Core Risk Rules
-        </h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {/* Core rules */}
+      <section className="space-y-3">
+        <h2 className="text-[16px] font-bold leading-6 text-foreground">Core risk rules</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {rules.map((rule, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-border bg-card p-4"
-            >
-              <div className="flex items-start gap-3">
-                <div className="text-lg font-medium text-[oklch(0.806_0.165_72.807)]">
-                  {rule.number}
-                </div>
-                <div>
-                  <h3 className="mb-1 text-[13px] font-medium text-foreground">
-                    {rule.title}
-                  </h3>
-                  <p className="text-[12px] text-muted-foreground">
-                    {rule.description}
-                  </p>
-                </div>
+            <Card key={rule.number} className="flex gap-4 p-5 animate-fade-up sm:p-6" style={{ animationDelay: `${i * 60}ms` }}>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-[14px] font-bold tabular-nums text-brand">
+                {rule.number}
               </div>
-            </div>
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-bold leading-6 text-foreground">{rule.title}</h3>
+                <p className="mt-1 text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">{rule.description}</p>
+              </div>
+            </Card>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {riskCards.map((card, i) => (
-          <div key={i} className="rounded-lg border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded"
-                style={{
-                  background:
-                    card.color === "red"
-                      ? "oklch(0.53_0.15_38/0.12)"
-                      : card.color === "amber"
-                        ? "oklch(0.9 0 0/0.1)"
-                        : card.color === "green"
-                          ? "oklch(0.65_0.15_46/0.12)"
-                          : "oklch(0.7_0.15_145/0.12)",
-                }}
-              >
-                <span className="text-sm">{card.icon}</span>
-              </div>
-              <div>
-                <div className="text-[13px] font-medium text-foreground">
-                  {card.title}
+      {/* Controls */}
+      <section className="space-y-3">
+        <h2 className="text-[16px] font-bold leading-6 text-foreground">How the framework works</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {riskCards.map((card, i) => {
+            const Glyph = card.icon
+            const tone = TONE[card.color]
+            return (
+              <Card key={card.title} className="p-5 animate-fade-up sm:p-6" style={{ animationDelay: `${240 + i * 60}ms` }}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${tone.wrap}`}>
+                    <Glyph className="h-5 w-5" stroke={1.8} />
+                  </div>
+                  <CardHeader title={card.title} description={card.subtitle} />
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {card.subtitle}
-                </div>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              {card.items.map((item, j) => (
-                <div key={j} className="flex items-start gap-2">
-                  <div
-                    className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                    style={{
-                      background:
-                        item.status === "green"
-                          ? "oklch(0.645_0.179_45.761)"
-                          : item.status === "amber"
-                            ? "oklch(0.5 0 0)"
-                            : item.status === "blue"
-                              ? "oklch(0.7_0.196_145.252)"
-                              : "oklch(0.527_0.166_38.076)",
-                    }}
-                  />
-                  <p className="text-[12px] text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {item.text.split(":")[0]}:
-                    </span>
-                    {item.text.includes(":")
-                      ? item.text.split(":").slice(1).join(":")
-                      : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-lg border border-[oklch(0.8_0.15_73/0.2)] bg-[oklch(0.8_0.15_73/0.08)] p-4">
-        <div className="flex items-start gap-3">
-          <svg
-            className="mt-0.5 h-4 w-4 flex-shrink-0 text-[oklch(0.806_0.165_72.807)]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          <div className="text-[13px] leading-normal text-muted-foreground">
-            <span className="font-medium text-foreground">
-              A message from the trading desk:
-            </span>{" "}
-            Every cent in this pool is treated as if it belongs to us
-            personally. Our risk management system was built over years of live
-            trading.
-            <a
-              href="https://t.me/khan_bashiri"
-              target="_blank"
-              className="ml-2 inline-flex items-center gap-1.5 rounded bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              <svg
-                className="h-3.5 w-3.5"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 6.98-.1.44-.37.61-.63.61-.27 0-.48-.18-.63-.61-.33-1.56-.98-5.4-1.13-6.98-.06-.5-.19-.76-.39-.76-.24 0-.48.22-.63.76-.2 1.08-.8 4.56-1.08 5.68-.18.76-.54 1.07-1.07.99-.52-.08-1.14-.35-1.63-.68-.35-.24-.53-.39-.53-.64 0-.22.26-.41.61-.64.6-.4 1.35-.86 2.22-1.3.53-.27.92-.45 1.24-.59.25-.11.45-.18.57-.18.19 0 .38.09.53.26.15.17.21.41.21.73 0 .25-.12.52-.36.81-.23.29-.53.63-.89 1.02-.37.4-.72.8-1.06 1.2-.34.4-.6.7-.78.9-.18.2-.28.35-.28.44 0 .14.2.28.61.42.4.14.93.3 1.56.48.63.18 1.32.4 2.06.67.73.26 1.37.55 1.91.86.54.31.88.59 1.02.84.14.25.21.49.21.73 0 .19-.09.38-.28.56-.19.18-.49.35-.91.51-.42.16-1.04.34-1.87.56-.83.21-1.74.46-2.73.73-.99.28-1.84.58-2.55.9-.71.32-1.17.64-1.38.96-.2.32-.31.68-.31 1.09 0 .34.12.63.37.87.24.24.58.36 1.01.36.35 0 .8-.12 1.36-.35.56-.24 1.15-.58 1.78-1.02.63-.44 1.28-.98 1.95-1.6.67-.63 1.27-1.32 1.81-2.08.54-.76.93-1.51 1.18-2.25.24-.74.31-1.46.2-2.16-.1-.7-.44-1.31-1-1.83-.57-.52-1.3-.83-2.18-.93-.88-.1-1.78-.01-2.71.26-.93.28-1.87.73-2.81 1.35-.94.62-1.72 1.38-2.34 2.27-.62.89-.99 1.87-1.1 2.95-.11 1.08.04 2.07.46 2.98.42.9 1.08 1.57 2 2 .91.44 1.91.61 3 .52.54-.05 1.02-.19 1.44-.41.42-.22.74-.49.96-.8.22-.31.34-.64.36-.99.02-.35-.04-.7-.19-1.04-.15-.34-.4-.66-.75-.95z" />
-              </svg>
-              Message on Telegram
-            </a>
-          </div>
+                <ul className="mt-4 divide-y divide-[var(--background-hover)]">
+                  {card.items.map((item, j) => {
+                    const [head, ...rest] = item.text.split(":")
+                    return (
+                      <li key={j} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                        <span className={`mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full ${TONE[item.status].dot}`} />
+                        <p className="text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">
+                          <span className="font-bold text-foreground">{head}:</span>
+                          {rest.length ? rest.join(":") : ""}
+                        </p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </Card>
+            )
+          })}
         </div>
-      </div>
+      </section>
+
+      {/* Message from the desk */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+            <IconMessage className="h-5 w-5" stroke={1.8} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[16px] font-bold leading-6 text-foreground">A message from the trading desk</h3>
+            <p className="mt-1 text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">
+              Every cent in this pool is treated as if it belongs to us personally. Our risk management system was built over years of live trading.
+            </p>
+          </div>
+          <a href="https://t.me/khan_bashiri" target="_blank" rel="noreferrer" className={buttonClass({ className: "flex-shrink-0" })}>
+            <IconBrandTelegram className="h-4 w-4" stroke={1.8} />
+            Message on Telegram
+          </a>
+        </div>
+      </Card>
     </div>
   )
 }

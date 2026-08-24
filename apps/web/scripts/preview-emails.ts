@@ -9,14 +9,14 @@ import { join } from "node:path"
 async function main() {
   const out = process.argv[2] || ".email-previews"
   mkdirSync(out, { recursive: true })
-  if (!process.env.APP_URL && !process.env.DOMAIN) process.env.APP_URL = "https://alphareserve.net"
+  if (!process.env.APP_URL && !process.env.DOMAIN) process.env.APP_URL = "https://eliteforexhub.com"
   const { sampleTemplates } = await import("../lib/mail")
   const index: string[] = []
   for (const t of sampleTemplates()) {
     writeFileSync(join(out, `${t.key}.html`), t.message.html)
     index.push(`<li><a href="${t.key}.html">${t.label}</a> — <code>${t.message.subject}</code></li>`)
   }
-  writeFileSync(join(out, "index.html"), `<h1>AlphaReserve email templates</h1><ul>${index.join("")}</ul>`)
+  writeFileSync(join(out, "index.html"), `<h1>Elite Forex Hub email templates</h1><ul>${index.join("")}</ul>`)
   console.log(`Wrote ${index.length} templates to ${out}/`)
 }
 main().catch((e) => {

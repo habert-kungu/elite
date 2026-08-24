@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import { Card, StatusPill } from "@/components/ui"
+import { Button, ButtonLink, Card, EmptyState, Notice, Select, TextField } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { Pagination } from "@/components/data-table"
 import { useAuth } from "@/app/providers/auth-provider"
 import { useCachedFetch, invalidateCache } from "@/lib/use-cached-fetch"
-import { PageHeader, StatGrid, Skeleton, Modal, ActionMenu, InvestorLink, KV, inputCls, formatDate } from "../_components"
+import { cn } from "@workspace/ui/lib/utils"
+import { IconAlertTriangle, IconCircleCheck, IconMail, IconPlus, IconSearch, IconUsers, IconX } from "@tabler/icons-react"
+import { ActionMenu, InvestorLink, KV, Modal, RoleBadge, Skeleton, StatGrid, formatDate } from "../_components"
 
 const PAGE_SIZE = 10
 
@@ -95,7 +97,7 @@ export default function UsersPage() {
           <>
             Account created for <strong>{json.user.email}</strong>.
             {json.link && (
-              <> Email isn't configured, so send them this activation link (valid 72h): <code className="break-all rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px]">{json.link}</code></>
+              <> Email isn't configured, so send them this activation link (valid 72h): <code className="break-all rounded-[4px] bg-active px-1.5 py-0.5 font-mono text-[12px]">{json.link}</code></>
             )}
           </>
         )
@@ -144,7 +146,7 @@ export default function UsersPage() {
         json.emailSent ? (
           <>Password reset for <strong>{json.email}</strong>. They've been signed out everywhere and emailed a link to choose a new password.</>
         ) : (
-          <>Password reset for <strong>{json.email}</strong> and all their sessions ended. Email isn't configured, so send them this link (valid 24h): <code className="break-all rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px]">{json.link}</code></>
+          <>Password reset for <strong>{json.email}</strong> and all their sessions ended. Email isn't configured, so send them this link (valid 24h): <code className="break-all rounded-[4px] bg-active px-1.5 py-0.5 font-mono text-[12px]">{json.link}</code></>
         )
       )
       setResetting(null)
@@ -185,180 +187,246 @@ export default function UsersPage() {
   const start = (data.page - 1) * PAGE_SIZE
   const end = Math.min(data.page * PAGE_SIZE, data.total)
   const allOnPage = data.users.length > 0 && data.users.every((u) => checked.has(u.id))
+  const checkbox = "h-4 w-4 flex-shrink-0 accent-[var(--primary)]"
+  const emptyTitle = q ? `No users match “${q}”` : "No users yet"
+  const empty = <EmptyState icon={<IconUsers className="h-5 w-5" stroke={1.8} />} title={emptyTitle} description={q ? "Try a different name, email or Telegram handle." : "Add your first user to get started."} />
+  const errorNotice = (
+    <Notice tone="danger" icon={<IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
+      {error}
+    </Notice>
+  )
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Users"
-        subtitle="Manage registered users"
-        right={
+        description="Manage registered users"
+        actions={
           <>
             {checked.size > 0 && (
-              <Link href={`/app/admin/communications?users=${Array.from(checked).join(",")}`} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
+              <ButtonLink href={`/app/admin/communications?users=${Array.from(checked).join(",")}`} variant="secondary" size="sm">
+                <IconMail className="h-4 w-4" stroke={1.8} />
                 Email ({checked.size})
-              </Link>
+              </ButtonLink>
             )}
-            <button onClick={() => { setError(""); setShowAdd(true) }} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90">
-              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14" /></svg>
+            <Button size="sm" onClick={() => { setError(""); setShowAdd(true) }}>
+              <IconPlus className="h-4 w-4" stroke={2} />
               Add user
-            </button>
+            </Button>
           </>
         }
       />
 
       {notice && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-[var(--color-success)]/25 bg-[var(--bg-success)] p-3 text-xs text-foreground">
-          <span>{notice}</span>
-          <button onClick={() => setNotice(null)} className="text-muted-foreground hover:text-foreground" aria-label="Dismiss">✕</button>
-        </div>
+        <Notice tone="success" icon={<IconCircleCheck className="h-4 w-4" stroke={1.8} />}>
+          <div className="flex items-start justify-between gap-3">
+            <span className="min-w-0">{notice}</span>
+            <button type="button" onClick={() => setNotice(null)} className="-mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[4px] text-less hover:bg-hover hover:text-foreground" aria-label="Dismiss">
+              <IconX className="h-4 w-4" stroke={2} />
+            </button>
+          </div>
+        </Notice>
       )}
-      {error && !showAdd && !removing && !resetting && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-3 text-xs text-destructive">{error}</div>}
+      {error && !showAdd && !removing && !resetting && errorNotice}
 
       <StatGrid
         items={[
-          { label: "Total Users", value: data.totals.users },
-          { label: "Total Deposits", value: `$${data.totals.deposits.toLocaleString()}` },
-          { label: "Total Returns", value: `$${data.totals.returns.toLocaleString()}`, className: "text-[var(--color-success)]" },
+          { label: "Total users", value: data.totals.users },
+          { label: "Total deposits", value: `$${data.totals.deposits.toLocaleString()}` },
+          { label: "Total returns", value: `$${data.totals.returns.toLocaleString()}`, className: "text-success" },
         ]}
       />
 
-      <Card className="p-3">
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 pl-1 pr-1 text-[11px] text-muted-foreground">
-            <input type="checkbox" aria-label="Select all on this page" className="h-3.5 w-3.5 accent-[var(--primary)]" checked={allOnPage} onChange={(e) => setChecked((prev) => { const next = new Set(prev); data.users.forEach((u) => (e.target.checked ? next.add(u.id) : next.delete(u.id))); return next })} />
-            <span className="hidden sm:inline">All</span>
-          </label>
-          <div className="relative flex-1">
-            <input type="search" value={search} onChange={(e) => changeSearch(e.target.value)} placeholder="Search by name, email or Telegram…" className={inputCls} />
-            {refreshing && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Updating…</span>}
-          </div>
-        </div>
-      </Card>
+      {/* Filter row */}
+      <div className="flex items-center gap-3">
+        <label className="flex h-10 flex-shrink-0 items-center gap-2 rounded-[4px] px-2 text-[12px] font-bold text-less hover:bg-hover">
+          <input type="checkbox" aria-label="Select all on this page" className={checkbox} checked={allOnPage} onChange={(e) => setChecked((prev) => { const next = new Set(prev); data.users.forEach((u) => (e.target.checked ? next.add(u.id) : next.delete(u.id))); return next })} />
+          <span className="hidden sm:inline">All</span>
+        </label>
+        <TextField
+          className="flex-1"
+          name="user-search"
+          type="search"
+          aria-label="Search users"
+          value={search}
+          onChange={(e) => changeSearch(e.target.value)}
+          placeholder="Search by name, email or Telegram…"
+          leading={<IconSearch className="h-4 w-4" stroke={1.8} />}
+          trailing={refreshing ? <span className="text-[12px]">Updating…</span> : undefined}
+        />
+      </div>
 
-      {/* Mobile: cards */}
-      <div className="space-y-2 sm:hidden">
-        {data.users.map((u) => (
-          <Card key={u.id} className={`p-3 ${checked.has(u.id) ? "ring-1 ring-primary/40" : ""}`}>
-            <div className="flex items-start gap-3">
-              <input type="checkbox" aria-label={`Select ${u.email}`} className="mt-2 h-3.5 w-3.5 flex-shrink-0 accent-[var(--primary)]" checked={checked.has(u.id)} onChange={() => toggleChecked(u.id)} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <InvestorLink id={u.id} name={u.name} email={u.email} />
-                  <ActionMenu items={menuFor(u)} />
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-                  <KV label="Deposited">${u.deposits.toLocaleString()}</KV>
-                  <KV label="Returns"><span className="text-[var(--color-success)]">${u.returns.toLocaleString()}</span></KV>
-                  <KV label="Telegram">{u.telegram || "—"}</KV>
-                  <KV label="Joined">{formatDate(u.createdAt)}</KV>
-                </div>
-                <div className="mt-2 flex items-center gap-2">
-                  <StatusPill tone={u.role === "admin" ? "info" : "neutral"} className="capitalize">{u.role}</StatusPill>
-                  {u.id === me?.id && <span className="text-[10px] text-muted-foreground">(you)</span>}
+      {/* Mobile: stacked rows */}
+      <Card className="overflow-hidden sm:hidden">
+        {data.users.length === 0 ? (
+          empty
+        ) : (
+          <div className="divide-y divide-[var(--background-hover)]">
+            {data.users.map((u) => (
+              <div key={u.id} className={cn("flex items-start gap-3 p-4", checked.has(u.id) && "bg-hover")}>
+                <input type="checkbox" aria-label={`Select ${u.email}`} className={cn(checkbox, "mt-2.5")} checked={checked.has(u.id)} onChange={() => toggleChecked(u.id)} />
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <InvestorLink id={u.id} name={u.name} email={u.email} />
+                    <ActionMenu items={menuFor(u)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <KV label="Deposited">${u.deposits.toLocaleString()}</KV>
+                    <KV label="Returns">
+                      <span className="text-success">${u.returns.toLocaleString()}</span>
+                    </KV>
+                    <KV label="Telegram">{u.telegram || "—"}</KV>
+                    <KV label="Joined">{formatDate(u.createdAt)}</KV>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RoleBadge role={u.role} />
+                    {u.id === me?.id && <span className="text-[12px] text-less">(you)</span>}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
-        {data.users.length === 0 && <Card className="p-8 text-center text-sm text-muted-foreground">{q ? `No users match “${q}”` : "No users yet"}</Card>}
-      </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Desktop: table */}
       <Card className="hidden overflow-hidden sm:block">
-        <table className="w-full">
-          <thead className="bg-secondary/50">
-            <tr>
-              <th className="w-8 px-3 py-2.5" />
-              <th className="px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground">User</th>
-              <th className="px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground">Role</th>
-              <th className="px-3 py-2.5 text-right font-mono text-[9px] uppercase text-muted-foreground">Deposited</th>
-              <th className="px-3 py-2.5 text-right font-mono text-[9px] uppercase text-muted-foreground">Returns</th>
-              <th className="hidden px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground lg:table-cell">Joined</th>
-              <th className="w-12 px-3 py-2.5" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {data.users.map((u) => (
-              <tr key={u.id} className={`hover:bg-secondary/30 ${checked.has(u.id) ? "bg-secondary/40" : ""}`}>
-                <td className="px-3 py-2.5"><input type="checkbox" aria-label={`Select ${u.email}`} className="h-3.5 w-3.5 accent-[var(--primary)]" checked={checked.has(u.id)} onChange={() => toggleChecked(u.id)} /></td>
-                <td className="px-3 py-2.5"><InvestorLink id={u.id} name={u.name} email={u.email} size="sm" />{u.id === me?.id && <span className="ml-8 text-[10px] text-muted-foreground">(you)</span>}</td>
-                <td className="px-3 py-2.5"><StatusPill tone={u.role === "admin" ? "info" : "neutral"} className="capitalize">{u.role}</StatusPill></td>
-                <td className="px-3 py-2.5 text-right text-xs font-medium tabular-nums text-foreground">${u.deposits.toLocaleString()}</td>
-                <td className="px-3 py-2.5 text-right text-xs font-medium tabular-nums text-[var(--color-success)]">${u.returns.toLocaleString()}</td>
-                <td className="hidden px-3 py-2.5 text-xs text-muted-foreground lg:table-cell">{formatDate(u.createdAt)}</td>
-                <td className="px-2 py-2.5 text-right"><ActionMenu items={menuFor(u)} /></td>
-              </tr>
-            ))}
-            {data.users.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-sm text-muted-foreground">{q ? `No users match “${q}”` : "No users yet"}</td></tr>
-            )}
-          </tbody>
-        </table>
+        {data.users.length === 0 ? (
+          empty
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-linear min-w-[640px]">
+              <thead>
+                <tr>
+                  <th className="w-10" />
+                  <th>User</th>
+                  <th>Role</th>
+                  <th className="text-right">Deposited</th>
+                  <th className="text-right">Returns</th>
+                  <th className="hidden lg:table-cell">Joined</th>
+                  <th className="w-12" />
+                </tr>
+              </thead>
+              <tbody>
+                {data.users.map((u) => (
+                  <tr key={u.id} className={cn(checked.has(u.id) && "[&>td]:bg-hover")}>
+                    <td>
+                      <input type="checkbox" aria-label={`Select ${u.email}`} className={checkbox} checked={checked.has(u.id)} onChange={() => toggleChecked(u.id)} />
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <InvestorLink id={u.id} name={u.name} email={u.email} size="sm" />
+                        {u.id === me?.id && <span className="text-[12px] text-less">(you)</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <RoleBadge role={u.role} />
+                    </td>
+                    <td className="text-right font-bold tabular-nums text-foreground">${u.deposits.toLocaleString()}</td>
+                    <td className="text-right font-bold tabular-nums text-success">${u.returns.toLocaleString()}</td>
+                    <td className="hidden text-[12px] text-less lg:table-cell">{formatDate(u.createdAt)}</td>
+                    <td className="text-right">
+                      <ActionMenu items={menuFor(u)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Pagination page={data.page} pageCount={data.pageCount} onPageChange={setPage} total={data.total} start={start} end={end} className="mt-4" />
 
       {/* Add user */}
-      <Modal open={showAdd} onClose={() => !busy && setShowAdd(false)} title="Add user">
-        <form onSubmit={handleAdd} className="space-y-3">
-          {error && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-2.5 text-xs text-destructive">{error}</div>}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">Full name</label>
-            <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
+      <Modal
+        open={showAdd}
+        onClose={() => !busy && setShowAdd(false)}
+        title="Add user"
+        footer={
+          <>
+            <Button variant="secondary" type="button" onClick={() => setShowAdd(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button type="submit" form="admin-add-user" loading={busy} disabled={busy}>
+              {busy ? "Creating…" : "Create user"}
+            </Button>
+          </>
+        }
+      >
+        <form id="admin-add-user" onSubmit={handleAdd} className="space-y-4">
+          {error && errorNotice}
+          <TextField label="Full name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jane Doe" />
+          <TextField label="Email" name="email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@example.com" />
+          <div className="grid grid-cols-2 gap-4">
+            <TextField label="Telegram" name="telegram" value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} placeholder="@username" />
+            <Select label="Role" name="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </Select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
-            <input className={inputCls} type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@example.com" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">Telegram</label>
-              <input className={inputCls} value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} placeholder="@username" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-foreground">Role</label>
-              <select className={inputCls} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-foreground">Password <span className="font-normal text-muted-foreground">(optional — leave blank to email them an activation link)</span></label>
-            <input className={inputCls} type="text" minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Leave blank to send an activation link" autoComplete="off" />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setShowAdd(false)} disabled={busy} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Cancel</button>
-            <button type="submit" disabled={busy} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">{busy ? "Creating…" : "Create user"}</button>
-          </div>
+          <TextField
+            label="Password"
+            name="password"
+            type="text"
+            minLength={6}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            placeholder="Leave blank to send an activation link"
+            autoComplete="off"
+            help="Optional — leave blank to email them an activation link."
+          />
         </form>
       </Modal>
 
       {/* Reset password */}
-      <Modal open={!!resetting} onClose={() => !busy && setResetting(null)} title="Reset password">
+      <Modal
+        open={!!resetting}
+        onClose={() => !busy && setResetting(null)}
+        title="Reset password"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setResetting(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={handleResetPassword} loading={busy} disabled={busy}>
+              {busy ? "Resetting…" : "Reset & email"}
+            </Button>
+          </>
+        }
+      >
         {resetting && (
           <div className="space-y-4">
-            {error && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-2.5 text-xs text-destructive">{error}</div>}
-            <p className="text-sm text-foreground">Generate a temporary password for <strong>{resetting.name || resetting.email}</strong>? They'll be signed out on every device and emailed a link to choose a new password.</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setResetting(null)} disabled={busy} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Cancel</button>
-              <button onClick={handleResetPassword} disabled={busy} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">{busy ? "Resetting…" : "Reset & email"}</button>
-            </div>
+            {error && errorNotice}
+            <p>
+              Generate a temporary password for <strong className="font-bold text-foreground">{resetting.name || resetting.email}</strong>? They'll be signed out on every device and emailed a link to choose a new password.
+            </p>
           </div>
         )}
       </Modal>
 
       {/* Remove user */}
-      <Modal open={!!removing} onClose={() => !busy && setRemoving(null)} title="Remove user">
+      <Modal
+        open={!!removing}
+        onClose={() => !busy && setRemoving(null)}
+        title="Remove user"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRemoving(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleRemove} loading={busy} disabled={busy}>
+              {busy ? "Removing…" : "Remove user"}
+            </Button>
+          </>
+        }
+      >
         {removing && (
           <div className="space-y-4">
-            {error && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-2.5 text-xs text-destructive">{error}</div>}
-            <p className="text-sm text-foreground">Remove <strong>{removing.name || removing.email}</strong>? This permanently deletes their account along with <strong>{removing.investments}</strong> investment{removing.investments === 1 ? "" : "s"}, cycles and transaction history. This can't be undone.</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setRemoving(null)} disabled={busy} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">Cancel</button>
-              <button onClick={handleRemove} disabled={busy} className="rounded-lg bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50">{busy ? "Removing…" : "Remove user"}</button>
-            </div>
+            {error && errorNotice}
+            <p>
+              Remove <strong className="font-bold text-foreground">{removing.name || removing.email}</strong>? This permanently deletes their account along with <strong className="font-bold text-foreground">{removing.investments}</strong> investment{removing.investments === 1 ? "" : "s"}, cycles and transaction history. This can't be undone.
+            </p>
           </div>
         )}
       </Modal>

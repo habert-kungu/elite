@@ -1,10 +1,11 @@
 "use client"
 
-
-import { Card, StatusPill, statusTone } from "@/components/ui"
 import * as React from "react"
+import { Badge, Card, EmptyState, Modal, Skeleton, StatusPill, statusTone, Tabs, type BadgeTone } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
+import { IconArrowDownLeft, IconArrowUpRight, IconReceipt2, IconSearch, IconTrendingUp } from "@tabler/icons-react"
 
 interface Transaction {
   id: string
@@ -17,6 +18,48 @@ interface Transaction {
   note: string
   txHash?: string
   createdAt: string
+}
+
+const FILTERS: { value: string; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "deposit", label: "Deposits" },
+  { value: "return", label: "Returns" },
+  { value: "withdrawal", label: "Withdrawals" },
+]
+
+/** One cell of the Reports summary strip. */
+function SummaryCell({ label, value, tone, hint }: { label: string; value: string; tone?: "success" | "danger" | "muted"; hint?: string }) {
+  const color = tone === "success" ? "text-success" : tone === "danger" ? "text-destructive" : tone === "muted" ? "text-less" : "text-foreground"
+  return (
+    <div className="min-w-0 px-4 py-4 sm:px-6">
+      <div className="text-[12px] leading-[18px] text-less">{label}</div>
+      <div className={`mt-0.5 truncate text-[20px] font-bold leading-[30px] tabular-nums md:text-[24px] md:leading-9 ${color}`}>{value}</div>
+      {hint && <div className="text-[12px] leading-[18px] text-less">{hint}</div>}
+    </div>
+  )
+}
+
+function typeTone(type: string): BadgeTone {
+  if (type === "deposit") return "success"
+  if (type === "return") return "brand"
+  if (type === "withdrawal") return "danger"
+  return "neutral"
+}
+
+function typeLabel(type: string) {
+  return type.charAt(0).toUpperCase() + type.slice(1)
+}
+
+function TypeGlyph({ type }: { type: string }) {
+  const inflow = type === "deposit"
+  const isReturn = type === "return"
+  const Glyph = inflow ? IconArrowDownLeft : isReturn ? IconTrendingUp : IconArrowUpRight
+  const wrap = inflow ? "bg-success-soft text-success" : isReturn ? "bg-brand-soft text-brand" : "bg-danger-soft text-destructive"
+  return (
+    <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${wrap}`}>
+      <Glyph className="h-4 w-4" stroke={2} />
+    </span>
+  )
 }
 
 export default function TransactionsPage() {
@@ -50,264 +93,167 @@ export default function TransactionsPage() {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
   }
 
+  const amountText = (tx: Transaction) => `${tx.type === 'withdrawal' ? '-' : '+'}$${tx.amount.toLocaleString()}`
+  const amountColor = (tx: Transaction) => (tx.type === 'return' ? 'text-success' : tx.type === 'withdrawal' ? 'text-destructive' : 'text-foreground')
+
   if (loading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
-          ))}
-        </div>
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-24 w-full rounded-[16px]" />
+        <Skeleton className="h-[420px] w-full rounded-[16px]" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Transactions</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Your complete transaction history</p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Reports" description="A complete record of deposits, returns and withdrawals across your account." />
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase font-mono mb-1">Deposits</div>
-          <div className="text-sm sm:text-lg font-medium text-foreground">${stats.totalDeposits.toLocaleString()}</div>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase font-mono mb-1">Returns</div>
-          <div className="text-sm sm:text-lg font-medium text-[var(--color-success)]">+${stats.totalReturns.toLocaleString()}</div>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase font-mono mb-1">Withdrawals</div>
-          <div className="text-sm sm:text-lg font-medium text-foreground">-${stats.totalWithdrawals.toLocaleString()}</div>
-        </Card>
-        <Card className="p-3 sm:p-4">
-          <div className="text-[10px] sm:text-[11px] text-muted-foreground uppercase font-mono mb-1">Fees Paid</div>
-          <div className="text-sm sm:text-lg font-medium text-muted-foreground">-${stats.totalFees.toLocaleString()}</div>
-        </Card>
-      </div>
+      {/* Summary strip */}
+      <Card className="grid grid-cols-2 divide-y divide-[var(--background-hover)] sm:divide-y-0 sm:divide-x lg:grid-cols-4 animate-fade-up">
+        <SummaryCell label="Deposits" value={`$${stats.totalDeposits.toLocaleString()}`} hint="Net credited" />
+        <SummaryCell label="Returns" value={`+$${stats.totalReturns.toLocaleString()}`} tone="success" hint="Paid out" />
+        <SummaryCell label="Withdrawals" value={`-$${stats.totalWithdrawals.toLocaleString()}`} hint="Net sent" />
+        <SummaryCell label="Fees paid" value={`-$${stats.totalFees.toLocaleString()}`} tone="muted" hint="All time" />
+      </Card>
 
-      {/* Filters */}
-      <Card className="p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+      {/* Statement */}
+      <Card className="overflow-hidden animate-fade-up" style={{ animationDelay: "80ms" }}>
+        <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between sm:pr-5">
+          <Tabs items={FILTERS} value={filter} onChange={setFilter} className="tabs-fill-mobile" />
+          <div className="relative px-3 pb-3 sm:px-0 sm:pb-0">
+            <IconSearch className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-less sm:left-3" stroke={1.8} />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search ID..."
-              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:border-[oklch(0.62_0.12_178)] focus:ring-1 focus:ring-ring"
+              placeholder="Search by ID"
+              aria-label="Search by transaction ID"
+              className="field h-8 pl-9 sm:w-56"
             />
           </div>
-          <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
-            {[
-              { key: "all", label: "All" },
-              { key: "deposit", label: "Deposit" },
-              { key: "return", label: "Return" },
-              { key: "withdrawal", label: "Withdraw" },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`px-2.5 sm:px-3 py-1.5 text-[10px] sm:text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
-                  filter === f.key 
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
         </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon={<IconReceipt2 className="h-5 w-5" stroke={1.8} />}
+            title="No transactions"
+            description={transactions.length ? "Try adjusting your filters." : "Your deposits, returns and withdrawals will show up here."}
+          />
+        ) : (
+          <>
+            {/* Mobile: stacked rows */}
+            <div className="divide-y divide-[var(--background-hover)] lg:hidden">
+              {filtered.map((tx) => (
+                <button key={tx.id} type="button" onClick={() => setSelectedTx(tx)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover">
+                  <TypeGlyph type={tx.type} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-bold text-foreground">{typeLabel(tx.type)}</span>
+                      <StatusPill tone={statusTone(tx.status)} className="capitalize">{tx.status}</StatusPill>
+                    </div>
+                    <div className="truncate text-[12px] leading-[18px] text-less">
+                      {formatDate(tx.createdAt)} · {formatTime(tx.createdAt)} · <span className="font-mono">{tx.id.slice(0, 12)}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-[14px] font-bold tabular-nums ${amountColor(tx)}`}>{amountText(tx)}</div>
+                    <div className="text-[12px] leading-[18px] tabular-nums text-less">Net ${tx.net.toLocaleString()}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Desktop: table */}
+            <div className="hidden overflow-x-auto lg:block">
+              <table className="table-linear">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th className="text-right">Amount</th>
+                    <th className="text-right">Net</th>
+                    <th>Status</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((tx) => (
+                    <tr key={tx.id} className="cursor-pointer" onClick={() => setSelectedTx(tx)}>
+                      <td><span className="font-mono text-[12px] text-less">{tx.id.slice(0, 12)}</span></td>
+                      <td>
+                        <div className="text-foreground">{formatDate(tx.createdAt)}</div>
+                        <div className="text-[12px] leading-[18px] text-less">{formatTime(tx.createdAt)}</div>
+                      </td>
+                      <td><Badge tone={typeTone(tx.type)}>{typeLabel(tx.type)}</Badge></td>
+                      <td className="text-right">
+                        <div className={`font-bold tabular-nums ${amountColor(tx)}`}>{amountText(tx)}</div>
+                        <div className="text-[12px] leading-[18px] text-less">{tx.currency}</div>
+                      </td>
+                      <td className="text-right font-bold tabular-nums text-foreground">${tx.net.toLocaleString()}</td>
+                      <td><StatusPill tone={statusTone(tx.status)} className="capitalize">{tx.status}</StatusPill></td>
+                      <td><div className="max-w-[220px] truncate text-[12px] text-less">{tx.note}</div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </Card>
 
-      {/* Transaction List - Mobile Card View */}
-      <div className="block lg:hidden space-y-2">
-        {filtered.map((tx) => (
-          <div 
-            key={tx.id} 
-            className="bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-[oklch(0.62_0.12_178)/30] transition-all"
-            onClick={() => setSelectedTx(tx)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] sm:text-xs font-mono text-muted-foreground">{tx.id.slice(0, 12)}</span>
-              <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-medium ${
-                tx.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' :
-                tx.type === 'return' ? 'bg-[oklch(0.62_0.12_178)/20] text-primary' :
-                'bg-red-500/20 text-red-400'
-              }`}>
-                {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <div className={`text-sm sm:text-base font-medium ${
-                  tx.type === 'return' ? 'text-[var(--color-success)]' : 'text-foreground'
-                }`}>
-                  {tx.type === 'deposit' || tx.type === 'withdrawal' ? (
-                    <span>{tx.type === 'deposit' ? '+' : '-'}${tx.amount.toLocaleString()}</span>
-                  ) : (
-                    <span>+${tx.amount.toLocaleString()}</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-muted-foreground">{formatDate(tx.createdAt)} • {formatTime(tx.createdAt)}</div>
+      {/* Transaction detail */}
+      <Modal open={!!selectedTx} onClose={() => setSelectedTx(null)} title="Transaction details">
+        {selectedTx && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <TypeGlyph type={selectedTx.type} />
+              <div className="min-w-0 flex-1">
+                <div className="text-[16px] font-bold leading-6 text-foreground">{typeLabel(selectedTx.type)}</div>
+                <div className="text-[12px] leading-[18px] text-less">{formatDate(selectedTx.createdAt)} at {formatTime(selectedTx.createdAt)}</div>
               </div>
-              <div className="text-right">
-                <div className="text-xs font-medium text-muted-foreground">Net</div>
-                <div className="text-sm font-medium text-foreground">${tx.net.toLocaleString()}</div>
-              </div>
+              <span className={`text-[20px] font-bold leading-[30px] tabular-nums ${amountColor(selectedTx)}`}>{amountText(selectedTx)}</span>
             </div>
-          </div>
-        ))}
-        
-        {filtered.length === 0 && (
-          <Card className="p-8 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-secondary rounded-full flex items-center justify-center">
-              <svg className="w-6 h-6 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <div className="text-sm font-medium text-foreground">No transactions</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Try adjusting your filters</div>
-          </Card>
-        )}
-      </div>
 
-      {/* Transaction Table - Desktop */}
-      <div className="hidden lg:block bg-card border border-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-secondary/50">
-              <tr>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">ID</th>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">Date</th>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">Type</th>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">Amount</th>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">Net</th>
-                <th className="px-4 py-3 text-left text-[10px] font-mono uppercase text-muted-foreground">Note</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((tx) => (
-                <tr 
-                  key={tx.id} 
-                  className="hover:bg-secondary/30 transition-colors cursor-pointer"
-                  onClick={() => setSelectedTx(tx)}
-                >
-                  <td className="px-4 py-3">
-                    <span className="text-xs font-mono text-muted-foreground">{tx.id.slice(0, 12)}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-foreground">{formatDate(tx.createdAt)}</div>
-                    <div className="text-[10px] text-muted-foreground">{formatTime(tx.createdAt)}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                      tx.type === 'deposit' ? 'bg-emerald-500/20 text-emerald-400' :
-                      tx.type === 'return' ? 'bg-[oklch(0.62_0.12_178)/20] text-primary' :
-                      'bg-red-500/20 text-red-400'
-                    }`}>
-                      {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className={`text-sm font-medium ${
-                      tx.type === 'return' ? 'text-[var(--color-success)]' : 'text-foreground'
-                    }`}>
-                      {tx.type === 'deposit' || tx.type === 'withdrawal' ? (
-                        <span>{tx.type === 'deposit' ? '+' : '-'}${tx.amount.toLocaleString()}</span>
-                      ) : (
-                        <span>+${tx.amount.toLocaleString()}</span>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground">{tx.currency}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-sm font-medium text-foreground">${tx.net.toLocaleString()}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="text-xs text-muted-foreground max-w-[180px] truncate">{tx.note}</div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Transaction Detail Modal */}
-      {selectedTx && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTx(null)}>
-          <div className="w-full max-w-md p-5 bg-card border border-border rounded-lg" onClick={() => {}}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-foreground">Transaction Details</h3>
-              <button onClick={() => setSelectedTx(null)} className="p-1 hover:bg-secondary rounded-lg transition-colors">
-                <svg className="w-5 h-5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Transaction ID</span>
-                <span className="text-xs font-mono text-foreground">{selectedTx.id.slice(0, 16)}</span>
+            <dl className="divide-y divide-[var(--background-hover)]">
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <dt className="text-less">Transaction ID</dt>
+                <dd className="font-mono text-[12px] text-foreground">{selectedTx.id.slice(0, 16)}</dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Date & Time</span>
-                <span className="text-xs text-foreground">{formatDate(selectedTx.createdAt)} at {formatTime(selectedTx.createdAt)}</span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Type</span>
-                <span className={`text-xs font-medium ${
-                  selectedTx.type === 'deposit' ? 'text-emerald-500' :
-                  selectedTx.type === 'return' ? 'text-primary' :
-                  'text-red-400'
-                }`}>
-                  {selectedTx.type.charAt(0).toUpperCase() + selectedTx.type.slice(1)}
-                </span>
-              </div>
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Amount</span>
-                <span className="text-xs font-medium text-foreground">${selectedTx.amount.toLocaleString()} {selectedTx.currency}</span>
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <dt className="text-less">Amount</dt>
+                <dd className="font-bold tabular-nums text-foreground">${selectedTx.amount.toLocaleString()} {selectedTx.currency}</dd>
               </div>
               {selectedTx.type !== 'return' && (
-                <div className="flex justify-between py-2 border-b border-border">
-                  <span className="text-xs text-muted-foreground">Fee (16.5%)</span>
-                  <span className="text-xs font-medium text-muted-foreground">-${selectedTx.fee.toLocaleString()}</span>
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="text-less">Fee (16.5%)</dt>
+                  <dd className="tabular-nums text-less">-${selectedTx.fee.toLocaleString()}</dd>
                 </div>
               )}
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Net Received</span>
-                <span className="text-xs font-medium text-foreground">${selectedTx.net.toLocaleString()}</span>
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <dt className="text-less">Net received</dt>
+                <dd className="font-bold tabular-nums text-foreground">${selectedTx.net.toLocaleString()}</dd>
               </div>
-              <div className="flex justify-between py-2 border-b border-border">
-                <span className="text-xs text-muted-foreground">Status</span>
-                <StatusPill tone={statusTone(selectedTx.status)} className="capitalize">{selectedTx.status}</StatusPill>
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <dt className="text-less">Status</dt>
+                <dd><StatusPill tone={statusTone(selectedTx.status)} className="capitalize">{selectedTx.status}</StatusPill></dd>
               </div>
               {selectedTx.txHash && (
-                <div className="pt-2">
-                  <span className="text-xs text-muted-foreground block mb-1">TX Hash</span>
-                  <span className="text-xs font-mono text-foreground">{selectedTx.txHash}</span>
+                <div className="py-2.5">
+                  <dt className="mb-1 text-less">TX hash</dt>
+                  <dd className="break-all font-mono text-[12px] leading-[18px] text-foreground">{selectedTx.txHash}</dd>
                 </div>
               )}
-              <div className="pt-2">
-                <span className="text-xs text-muted-foreground block mb-1">Note</span>
-                <span className="text-xs text-foreground">{selectedTx.note}</span>
+              <div className="py-2.5">
+                <dt className="mb-1 text-less">Note</dt>
+                <dd className="text-foreground">{selectedTx.note}</dd>
               </div>
-            </div>
+            </dl>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   )
 }

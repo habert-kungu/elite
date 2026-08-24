@@ -23,14 +23,14 @@ export function NotificationBell({ className = "" }: { className?: string }) {
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
+        className="relative flex h-9 w-9 items-center justify-center rounded-[4px] text-less hover:bg-hover hover:text-foreground transition-colors"
       >
-        <svg className="w-5 h-5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.73 21a2 2 0 0 1-3.46 0" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[oklch(0.62_0.12_178)] text-white text-[10px] font-medium rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -39,13 +39,13 @@ export function NotificationBell({ className = "" }: { className?: string }) {
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
+          <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-background elevation-lg ring-1 ring-border rounded-[8px] z-50 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[var(--background-hover)]">
+              <h3 className="text-[14px] font-bold text-foreground">Notifications</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-[11px] text-[oklch(0.62_0.12_178)] hover:underline"
+                  className="text-[12px] font-bold text-brand hover:underline"
                 >
                   Mark all read
                 </button>
@@ -65,15 +65,15 @@ export function NotificationBell({ className = "" }: { className?: string }) {
                   <div
                     key={notification.id}
                     onClick={() => markAsRead(notification.id)}
-                    className={`px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-secondary/50 transition-colors ${
-                      !notification.read ? "bg-[oklch(0.62_0.12_178)/5]" : ""
+                    className={`px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-hover transition-colors ${
+                      !notification.read ? "bg-brand-soft" : ""
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                        notification.type === "success" ? "bg-emerald-500" :
-                        notification.type === "error" ? "bg-red-500" :
-                        notification.type === "investment" ? "bg-[oklch(0.62_0.12_178)]" :
+                        notification.type === "success" ? "bg-success" :
+                        notification.type === "error" ? "bg-destructive" :
+                        notification.type === "investment" ? "bg-primary" :
                         "bg-muted-foreground"
                       }`} />
                       <div className="flex-1 min-w-0">
@@ -113,13 +113,13 @@ export function ToastNotification() {
       {visibleToasts.map((toast) => (
         <div
           key={toast.id}
-          className="bg-card border border-border rounded-lg shadow-lg p-4 min-w-[280px] max-w-[360px] animate-slide-in"
+          className="bg-background elevation-xl ring-1 ring-border rounded-[8px] p-4 min-w-[280px] max-w-[360px] animate-slide-in"
         >
           <div className="flex items-start gap-3">
             <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-              toast.type === "success" ? "bg-emerald-500" :
-              toast.type === "error" ? "bg-red-500" :
-              "bg-[oklch(0.62_0.12_178)]"
+              toast.type === "success" ? "bg-success" :
+              toast.type === "error" ? "bg-destructive" :
+              "bg-primary"
             }`} />
             <div>
               <p className="text-sm font-medium text-foreground">{toast.title}</p>

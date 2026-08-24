@@ -10,20 +10,20 @@ test.describe("Withdraw Flow", () => {
   })
 
   test("should display withdraw page", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Withdraw", exact: true }).click()
+    await page.goto("/app/withdraw")
     await expect(page).toHaveURL("/app/withdraw")
-    await expect(page.getByRole("heading", { name: "Withdraw", level: 1 })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Cashier", level: 1 })).toBeVisible()
   })
 
   test("should show amount input", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Withdraw", exact: true }).click()
+    await page.goto("/app/withdraw")
     await expect(page).toHaveURL("/app/withdraw")
     await expect(page.getByPlaceholder("0.00")).toBeVisible({ timeout: 10000 })
   })
 
   test("should have withdraw button", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Withdraw", exact: true }).click()
+    await page.goto("/app/withdraw")
     await expect(page).toHaveURL("/app/withdraw")
-    await expect(page.getByRole("button", { name: /Request via Telegram/i })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole("button", { name: "Withdraw", exact: true })).toBeVisible({ timeout: 10000 })
   })
 })

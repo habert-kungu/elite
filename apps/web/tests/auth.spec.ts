@@ -6,7 +6,7 @@ test.describe("Authentication Flow", () => {
   })
 
   test("should display login page correctly", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Welcome back!" })).toBeVisible()
     await expect(page.getByPlaceholder("name@example.com")).toBeVisible()
     await expect(page.getByPlaceholder("••••••••")).toBeVisible()
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible()
@@ -26,7 +26,7 @@ test("should login successfully with valid credentials", async ({ page }) => {
     await page.getByPlaceholder("••••••••").fill("user123")
     await page.getByRole("button", { name: "Sign in" }).click()
     await expect(page).toHaveURL("/app", { timeout: 10000 })
-    await expect(page.getByText("Dashboard")).toBeVisible()
+    await expect(page.getByRole("heading", { name: /^(Hi, .*|Overview)$/ })).toBeVisible()
   })
 
   test("should redirect to login when accessing dashboard without auth", async ({ page }) => {
@@ -37,7 +37,7 @@ test("should login successfully with valid credentials", async ({ page }) => {
   test("should navigate to signup page", async ({ page }) => {
     await page.getByRole("link", { name: "Sign up" }).click()
     await expect(page).toHaveURL("/signup")
-    await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible()
   })
 
   test("should create new account successfully", async ({ page }) => {

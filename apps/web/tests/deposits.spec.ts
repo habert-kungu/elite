@@ -10,26 +10,26 @@ test.describe("Deposits & Investments", () => {
   })
 
   test("should display investment page", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Buy Crypto" }).click()
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Trade" }).click()
     await expect(page).toHaveURL("/app/investments")
-    await expect(page.getByRole("main").getByRole("heading", { name: "Buy Crypto" })).toBeVisible()
+    await expect(page.getByRole("main").getByRole("heading", { name: "Trade" })).toBeVisible()
   })
 
   test("should have invest buttons", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Buy Crypto" }).click()
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Trade" }).click()
     await expect(page).toHaveURL("/app/investments")
-    await expect(page.getByRole("button", { name: /Submit Investment/i }).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole("button", { name: /Start trading/i }).first()).toBeVisible({ timeout: 10000 })
   })
 
   test("should display transactions page", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Transactions" }).click()
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Reports" }).click()
     await expect(page).toHaveURL("/app/transactions")
-    await expect(page.getByRole("main").getByRole("heading", { name: "Transactions" })).toBeVisible()
+    await expect(page.getByRole("main").getByRole("heading", { name: "Reports" })).toBeVisible()
   })
 
   test("should filter transactions by type", async ({ page }) => {
-    await page.getByRole("navigation").getByRole("link", { name: "Transactions" }).click()
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Reports" }).click()
     await expect(page).toHaveURL("/app/transactions")
-    await expect(page.getByRole("button", { name: /all/i })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "All", exact: true })).toBeVisible()
   })
 })

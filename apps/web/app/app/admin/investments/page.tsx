@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Card, StatusPill, statusTone } from "@/components/ui"
+import { Badge, Card, EmptyState, Notice, statusTone } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { Pagination } from "@/components/data-table"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
-import { PageHeader, StatGrid, FilterBar, Skeleton, ActionMenu, InvestorLink, KV, formatDate } from "../_components"
+import { IconChartBar, IconCircleCheck, IconX } from "@tabler/icons-react"
+import { ActionMenu, FilterBar, InvestorLink, KV, ProgressBar, Skeleton, StatGrid, formatDate, planAmount, poolLabel } from "../_components"
 import { AdjustInvestmentModal, type AdminInvestment } from "../_adjust-modal"
 
 const PAGE_SIZE = 10
@@ -18,17 +20,15 @@ interface InvResponse {
   stats: { all: number; pending: number; active: number; completed: number; rejected: number }
 }
 
-function Progress({ cycle }: { cycle: AdminInvestment["cycle"] }) {
-  if (!cycle) return <span className="text-[10px] text-muted-foreground">—</span>
+function Progress({ cycle, pool }: { cycle: AdminInvestment["cycle"]; pool: string }) {
+  if (!cycle) return <span className="text-[12px] text-less">—</span>
   return (
-    <div className="min-w-[90px]">
-      <div className="mb-1 flex justify-between text-[10px] tabular-nums text-muted-foreground">
-        <span>${Math.round(cycle.currentValue).toLocaleString()}</span>
+    <div className="min-w-[110px]">
+      <div className="mb-1 flex justify-between text-[12px] leading-[18px] tabular-nums text-less">
+        <span>{planAmount(cycle.currentValue, pool)}</span>
         <span>{Math.round(cycle.progress)}%</span>
       </div>
-      <div className="h-1 overflow-hidden rounded-full bg-secondary">
-        <div className="h-full rounded-full bg-[var(--color-success)]" style={{ width: `${Math.min(100, cycle.progress)}%` }} />
-      </div>
+      <ProgressBar value={cycle.progress} />
     </div>
   )
 }
@@ -55,29 +55,37 @@ export default function InvestmentsPage() {
     { label: "View investor", href: `/app/admin/users/${inv.userId}` },
   ]
 
+  const empty = <EmptyState icon={<IconChartBar className="h-5 w-5" stroke={1.8} />} title="No investments found" description="Nothing matches this filter yet." />
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Investments"
-        subtitle="Track all investment cycles"
-        right={
-          <span className="text-xs text-muted-foreground">
-            {refreshing && <span className="mr-2 text-[11px]">Refreshing…</span>}
-            Active: <span className="text-sm font-medium text-[var(--color-success)]">{data.stats.active}</span>
-          </span>
+        description="Track all investment cycles"
+        actions={
+          <>
+            {refreshing && <span className="text-[12px] text-less">Refreshing…</span>}
+            <Badge tone="success" dot>
+              {data.stats.active} active
+            </Badge>
+          </>
         }
       />
 
       {notice && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-[var(--color-success)]/25 bg-[var(--bg-success)] p-3 text-xs text-foreground">
-          <span>{notice}</span>
-          <button onClick={() => setNotice("")} className="text-muted-foreground hover:text-foreground" aria-label="Dismiss">✕</button>
-        </div>
+        <Notice tone="success" icon={<IconCircleCheck className="h-4 w-4" stroke={1.8} />}>
+          <div className="flex items-start justify-between gap-3">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice("")} className="-mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-[4px] text-less hover:bg-hover hover:text-foreground" aria-label="Dismiss">
+              <IconX className="h-4 w-4" stroke={2} />
+            </button>
+          </div>
+        </Notice>
       )}
 
       <StatGrid
         items={[
-          { label: "Active", value: data.stats.active, className: "text-[var(--color-success)]" },
+          { label: "Active", value: data.stats.active, className: "text-success" },
           { label: "Completed", value: data.stats.completed },
           { label: "Total", value: data.stats.all },
         ]}
@@ -95,62 +103,88 @@ export default function InvestmentsPage() {
         ]}
       />
 
-      {/* Mobile: cards */}
-      <div className="space-y-2 sm:hidden">
-        {data.investments.map((inv) => (
-          <Card key={inv.id} className="p-3">
-            <div className="flex items-start justify-between gap-2">
-              <InvestorLink id={inv.userId} name={inv.userName} email={inv.userEmail} />
-              <ActionMenu items={menuFor(inv)} />
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-foreground">{inv.pool === "daily" ? "48H" : "Weekly"} · {inv.roi}x</span>
-              <StatusPill tone={statusTone(inv.status)} className="capitalize">{inv.status}</StatusPill>
-              <span className="text-[10px] text-muted-foreground">{formatDate(inv.createdAt)}</span>
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
-              <KV label="Amount">${inv.amount.toLocaleString()}</KV>
-              <KV label="Target"><span className="text-[var(--color-success)]">${Math.round(inv.amount * inv.roi).toLocaleString()}</span></KV>
-            </div>
-            {inv.cycle && <div className="mt-2"><Progress cycle={inv.cycle} /></div>}
-          </Card>
-        ))}
-        {data.investments.length === 0 && <Card className="p-8 text-center text-sm text-muted-foreground">No investments found</Card>}
-      </div>
+      {/* Mobile: stacked rows */}
+      <Card className="overflow-hidden sm:hidden">
+        {data.investments.length === 0 ? (
+          empty
+        ) : (
+          <div className="divide-y divide-[var(--background-hover)]">
+            {data.investments.map((inv) => (
+              <div key={inv.id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <InvestorLink id={inv.userId} name={inv.userName} email={inv.userEmail} />
+                  <ActionMenu items={menuFor(inv)} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[14px] font-bold text-foreground">
+                    {poolLabel(inv.pool, true)} · {inv.roi}x
+                  </span>
+                  <Badge tone={statusTone(inv.status)} className="capitalize">
+                    {inv.status}
+                  </Badge>
+                  <span className="text-[12px] text-less">{formatDate(inv.createdAt)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <KV label="Amount">{planAmount(inv.amount, inv.pool)}</KV>
+                  <KV label="Target">
+                    <span className="text-success">{planAmount(inv.amount * inv.roi, inv.pool)}</span>
+                  </KV>
+                </div>
+                {inv.cycle && <Progress cycle={inv.cycle} pool={inv.pool} />}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Desktop: table */}
       <Card className="hidden overflow-hidden sm:block">
-        <table className="w-full">
-          <thead className="bg-secondary/50">
-            <tr>
-              <th className="px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground">Investor</th>
-              <th className="px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground">Pool</th>
-              <th className="px-3 py-2.5 text-right font-mono text-[9px] uppercase text-muted-foreground">Amount</th>
-              <th className="px-3 py-2.5 text-right font-mono text-[9px] uppercase text-muted-foreground">Target</th>
-              <th className="hidden px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground md:table-cell">Progress</th>
-              <th className="px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground">Status</th>
-              <th className="hidden px-3 py-2.5 text-left font-mono text-[9px] uppercase text-muted-foreground lg:table-cell">Started</th>
-              <th className="w-12 px-2 py-2.5" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {data.investments.map((inv) => (
-              <tr key={inv.id} className="hover:bg-secondary/30">
-                <td className="px-3 py-2.5"><InvestorLink id={inv.userId} name={inv.userName} email={inv.userEmail} size="sm" /></td>
-                <td className="px-3 py-2.5 text-xs text-foreground">{inv.pool === "daily" ? "48H" : "Weekly"} <span className="text-[10px] text-muted-foreground">· {inv.roi}x</span></td>
-                <td className="px-3 py-2.5 text-right text-xs font-medium tabular-nums text-foreground">${inv.amount.toLocaleString()}</td>
-                <td className="px-3 py-2.5 text-right text-xs font-medium tabular-nums text-[var(--color-success)]">${Math.round(inv.amount * inv.roi).toLocaleString()}</td>
-                <td className="hidden px-3 py-2.5 md:table-cell"><Progress cycle={inv.cycle} /></td>
-                <td className="px-3 py-2.5"><StatusPill tone={statusTone(inv.status)} className="capitalize">{inv.status}</StatusPill></td>
-                <td className="hidden px-3 py-2.5 text-[10px] text-muted-foreground lg:table-cell">{formatDate(inv.createdAt)}</td>
-                <td className="px-2 py-2.5 text-right"><ActionMenu items={menuFor(inv)} /></td>
-              </tr>
-            ))}
-            {data.investments.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-sm text-muted-foreground">No investments found</td></tr>
-            )}
-          </tbody>
-        </table>
+        {data.investments.length === 0 ? (
+          empty
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-linear min-w-[720px]">
+              <thead>
+                <tr>
+                  <th>Investor</th>
+                  <th>Plan</th>
+                  <th className="text-right">Amount</th>
+                  <th className="text-right">Target</th>
+                  <th className="hidden md:table-cell">Progress</th>
+                  <th>Status</th>
+                  <th className="hidden lg:table-cell">Started</th>
+                  <th className="w-12" />
+                </tr>
+              </thead>
+              <tbody>
+                {data.investments.map((inv) => (
+                  <tr key={inv.id}>
+                    <td>
+                      <InvestorLink id={inv.userId} name={inv.userName} email={inv.userEmail} size="sm" />
+                    </td>
+                    <td className="text-foreground">
+                      {poolLabel(inv.pool, true)} <span className="text-less">· {inv.roi}x</span>
+                    </td>
+                    <td className="text-right font-bold tabular-nums text-foreground">{planAmount(inv.amount, inv.pool)}</td>
+                    <td className="text-right font-bold tabular-nums text-success">{planAmount(inv.amount * inv.roi, inv.pool)}</td>
+                    <td className="hidden md:table-cell">
+                      <Progress cycle={inv.cycle} pool={inv.pool} />
+                    </td>
+                    <td>
+                      <Badge tone={statusTone(inv.status)} className="capitalize">
+                        {inv.status}
+                      </Badge>
+                    </td>
+                    <td className="hidden text-[12px] text-less lg:table-cell">{formatDate(inv.createdAt)}</td>
+                    <td className="text-right">
+                      <ActionMenu items={menuFor(inv)} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Pagination page={data.page} pageCount={data.pageCount} onPageChange={setPage} total={data.total} start={start} end={end} className="mt-4" />

@@ -1,12 +1,13 @@
 "use client"
 
-import { Card } from "@/components/ui"
 import * as React from "react"
-import Link from "next/link"
 import { useTheme } from "next-themes"
+import { Badge, Card, Notice, Segmented, Spinner, Tabs } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { KlineChart } from "@/components/KlineChart"
 import { ForexChart, ForexOverview, FOREX_PAIRS, type ForexPair } from "@/components/ForexChart"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
+import { IconInfoCircle } from "@tabler/icons-react"
 
 // Symbols we track, with display names, in rank order.
 const TRACKED = [
@@ -65,32 +66,27 @@ function useLivePrices() {
   return { coins, loading: loading && !error }
 }
 
-function LiveBadge() {
+/** Signed 24h change, teal up / coral down (chart tokens). */
+function Change({ value, className = "" }: { value: number; className?: string }) {
+  const up = value >= 0
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-success)] px-2 py-1">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-success)]" />
-      <span className="text-[10px] font-semibold text-[var(--color-success)]">Live</span>
+    <span className={`font-bold tabular-nums ${className}`} style={{ color: up ? "var(--chart-up)" : "var(--chart-down)" }}>
+      {up ? "+" : ""}
+      {value.toFixed(2)}%
     </span>
   )
 }
 
-function ChartContainer({
-  title,
-  children,
-  action,
-}: {
-  title: string
-  children: React.ReactNode
-  action?: React.ReactNode
-}) {
+/** Card with a Sub 2 title row; wraps charts and market lists. */
+function MarketCard({ title, children, action, live, className = "" }: { title: string; children: React.ReactNode; action?: React.ReactNode; live?: boolean; className?: string }) {
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2.5 sm:px-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[10px] font-medium text-foreground sm:text-xs">{title}</h3>
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-success)]" />
+    <Card className={`overflow-hidden ${className}`}>
+      <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate text-[16px] font-bold leading-6 text-foreground">{title}</h3>
+          {live && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" aria-hidden="true" />}
         </div>
-        {action}
+        {action && <div className="min-w-0 max-w-full text-[12px] leading-[18px] text-less sm:flex-shrink-0">{action}</div>}
       </div>
       {children}
     </Card>
@@ -99,35 +95,40 @@ function ChartContainer({
 
 function LoadingOverlay({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-card/80">
-      <div className="flex flex-col items-center gap-2">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
-        <span className="text-[10px] text-muted-foreground">{label}</span>
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_srgb,var(--background-secondary)_80%,transparent)]">
+      <div className="flex flex-col items-center gap-2 text-less">
+        <Spinner className="h-6 w-6" />
+        <span className="text-[12px] leading-[18px]">{label}</span>
       </div>
     </div>
   )
 }
 
-
-function CryptoScreener({ coins, loading }: { coins: LiveCoin[]; loading: boolean }) {
+function CryptoScreener({ coins, loading, selected, onSelect }: { coins: LiveCoin[]; loading: boolean; selected: string; onSelect: (base: string) => void }) {
   return (
     <div className="relative">
       {loading && <LoadingOverlay />}
-      <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-4">
-        {coins.slice(0, 8).map((coin) => (
-          <div key={coin.base} className="rounded-lg bg-secondary/40 p-2 sm:p-3">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-foreground">{coin.base}</span>
-              <span className={`text-[9px] font-semibold ${coin.change >= 0 ? "text-[var(--color-success)]" : "text-destructive"}`}>
-                {coin.change >= 0 ? "+" : ""}
-                {coin.change.toFixed(2)}%
-              </span>
-            </div>
-            <div className="font-mono text-[11px] text-foreground sm:text-xs tabular-nums">${formatPrice(coin.price)}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 gap-2 px-5 pb-3 sm:grid-cols-4">
+        {coins.slice(0, 8).map((coin) => {
+          const active = selected === coin.base
+          return (
+            <button
+              key={coin.base}
+              type="button"
+              onClick={() => onSelect(coin.base)}
+              aria-pressed={active}
+              className={`rounded-[8px] p-3 text-left transition-colors ${active ? "bg-background ring-2 ring-primary" : "bg-background hover:bg-hover"}`}
+            >
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-[12px] font-bold text-foreground">{coin.base}</span>
+                <Change value={coin.change} className="text-[12px]" />
+              </div>
+              <div className="font-mono text-[14px] tabular-nums text-foreground">${formatPrice(coin.price)}</div>
+            </button>
+          )
+        })}
       </div>
-      <div className="mb-2 text-center text-[9px] text-muted-foreground">Live prices from Binance · refreshes every 30s</div>
+      <div className="px-5 pb-4 text-[12px] leading-[18px] text-less">Live prices from Binance · refreshes every 30s</div>
     </div>
   )
 }
@@ -170,7 +171,6 @@ function TradingViewScriptWidget({
   return <div ref={ref} className="tradingview-widget-container" style={{ height, overflow: "hidden" }} />
 }
 
-
 function TradingViewNews() {
   const { resolvedTheme } = useTheme()
   const colorTheme = resolvedTheme === "dark" ? "dark" : "light"
@@ -192,17 +192,17 @@ function TradingViewNews() {
   )
 }
 
+const MARKET_TABS = [
+  { value: "crypto", label: "Crypto" },
+  { value: "forex", label: "Forex" },
+  { value: "news", label: "News" },
+]
+
 export default function ExplorePage() {
   const [activeTab, setActiveTab] = React.useState("crypto")
   const [selectedForex, setSelectedForex] = React.useState<ForexPair>(FOREX_PAIRS[0])
   const [selectedCrypto, setSelectedCrypto] = React.useState("BINANCE:BTCUSDT")
   const { coins, loading } = useLivePrices()
-
-  const tabs = [
-    { id: "crypto", label: "Crypto" },
-    { id: "forex", label: "Forex" },
-    { id: "news", label: "News" },
-  ]
 
   const cryptoPairs = [
     { symbol: "BINANCE:BTCUSDT", label: "BTC" },
@@ -214,143 +214,119 @@ export default function ExplorePage() {
   ]
 
   const currentCryptoLabel = cryptoPairs.find((p) => p.symbol === selectedCrypto)?.label || "BTC"
-
-  const selectorBtn = (active: boolean) =>
-    `rounded px-2.5 py-1.5 text-[10px] font-semibold transition-all ${
-      active ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
-    }`
+  const selectedBase = selectedCrypto.replace("BINANCE:", "").replace("USDT", "")
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Header */}
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-        <div>
-          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground sm:text-xs">Live Data</div>
-          <h1 className="text-lg font-semibold text-foreground sm:text-xl">Explore Markets</h1>
-        </div>
-        <Link href="/app" className="text-xs text-muted-foreground hover:text-foreground">← Back</Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Markets"
+        description="Live crypto and forex prices, charts and market news."
+      />
 
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition-all sm:px-3 sm:text-xs ${
-              activeTab === tab.id ? "bg-foreground text-background" : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        <div className="ml-auto">
-          <LiveBadge />
-        </div>
-      </div>
+      <Tabs items={MARKET_TABS} value={activeTab} onChange={setActiveTab} className="tabs-fill-mobile animate-fade-up" />
 
-      {/* Crypto Tab */}
+      {/* Crypto */}
       {activeTab === "crypto" && (
-        <div className="space-y-3 sm:space-y-4">
-          <Card className="p-2.5">
-            <div className="flex flex-wrap gap-1">
-              {cryptoPairs.map((pair) => (
-                <button key={pair.symbol} onClick={() => setSelectedCrypto(pair.symbol)} className={selectorBtn(selectedCrypto === pair.symbol)}>
-                  {pair.label}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <ChartContainer
+        <div className="space-y-6">
+          <MarketCard
             title={`${currentCryptoLabel}/USDT`}
-            action={<span className="text-[9px] text-muted-foreground">Binance · live</span>}
+            live
+            action={
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline">Binance · live</span>
+                <Segmented items={cryptoPairs.map((p) => ({ value: p.symbol, label: p.label }))} value={selectedCrypto} onChange={setSelectedCrypto} className="overflow-x-auto" />
+              </div>
+            }
+            className="animate-fade-up"
           >
             <KlineChart symbol={selectedCrypto.replace("BINANCE:", "")} height={260} />
-          </ChartContainer>
+          </MarketCard>
 
-          <ChartContainer title="Market Overview">
-            <CryptoScreener coins={coins} loading={loading} />
-          </ChartContainer>
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
+            <div className="space-y-6">
+            <MarketCard title="Market overview" live className="animate-fade-up">
+              <CryptoScreener coins={coins} loading={loading} selected={selectedBase} onSelect={(base) => setSelectedCrypto(`BINANCE:${base}USDT`)} />
+            </MarketCard>
 
-          {/* Live price table */}
-          <ChartContainer title="Top Cryptocurrencies">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[360px]">
-                <thead className="bg-secondary/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-[9px] font-mono uppercase text-muted-foreground">#</th>
-                    <th className="px-3 py-2 text-left text-[9px] font-mono uppercase text-muted-foreground">Name</th>
-                    <th className="px-3 py-2 text-right text-[9px] font-mono uppercase text-muted-foreground">Price</th>
-                    <th className="px-3 py-2 text-right text-[9px] font-mono uppercase text-muted-foreground">24h</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {coins.map((coin, i) => (
-                    <tr
-                      key={coin.base}
-                      className="cursor-pointer hover:bg-secondary/30"
-                      onClick={() => setSelectedCrypto(`BINANCE:${coin.base}USDT`)}
-                    >
-                      <td className="px-3 py-2.5 text-[10px] text-muted-foreground">{i + 1}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-foreground">
-                            {coin.base.slice(0, 2)}
-                          </div>
-                          <span className="text-[10px] font-medium text-foreground">{coin.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono text-[10px] font-medium text-foreground tabular-nums">${formatPrice(coin.price)}</td>
-                      <td className={`px-3 py-2.5 text-right text-[10px] font-semibold tabular-nums ${coin.change >= 0 ? "text-[var(--color-success)]" : "text-destructive"}`}>
-                        {coin.change >= 0 ? "+" : ""}
-                        {coin.change.toFixed(2)}%
-                      </td>
+            <Notice tone="info" icon={<IconInfoCircle className="h-4 w-4" stroke={1.8} />}>
+              Positions are closed 30 minutes before high-impact events. Capital protected.
+            </Notice>
+            </div>
+
+            <MarketCard title="Top cryptocurrencies" action="24h change" className="animate-fade-up">
+              <div className="overflow-x-auto">
+                <table className="table-linear">
+                  <thead>
+                    <tr>
+                      <th className="w-10">#</th>
+                      <th>Name</th>
+                      <th className="text-right">Price</th>
+                      <th className="text-right">24h</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </ChartContainer>
+                  </thead>
+                  <tbody>
+                    {coins.map((coin, i) => (
+                      <tr key={coin.base} className="cursor-pointer" onClick={() => setSelectedCrypto(`BINANCE:${coin.base}USDT`)}>
+                        <td className="text-[12px] text-less">{i + 1}</td>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-active text-[12px] font-bold text-foreground">{coin.base.slice(0, 2)}</span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-foreground">{coin.name}</div>
+                              <div className="text-[12px] leading-[18px] text-less">{coin.base}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-right font-mono tabular-nums text-foreground">${formatPrice(coin.price)}</td>
+                        <td className="text-right"><Change value={coin.change} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </MarketCard>
+          </div>
         </div>
       )}
 
-      {/* Forex Tab */}
+      {/* Forex */}
       {activeTab === "forex" && (
-        <div className="space-y-3 sm:space-y-4">
-          <Card className="p-2.5">
-            <div className="flex flex-wrap gap-1">
-              {FOREX_PAIRS.map((pair) => (
-                <button key={pair.pair} onClick={() => setSelectedForex(pair)} className={selectorBtn(selectedForex.pair === pair.pair)}>
-                  {pair.pair}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <ChartContainer title={selectedForex.pair} action={<span className="text-[9px] text-muted-foreground">ECB daily fix</span>}>
+        <div className="space-y-6">
+          <MarketCard
+            title={selectedForex.pair}
+            live
+            action={
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline">ECB daily fix</span>
+                <Segmented
+                  items={FOREX_PAIRS.map((p) => ({ value: p.pair, label: p.pair }))}
+                  value={selectedForex.pair}
+                  onChange={(v) => {
+                    const next = FOREX_PAIRS.find((p) => p.pair === v)
+                    if (next) setSelectedForex(next)
+                  }}
+                  className="max-w-full overflow-x-auto"
+                />
+              </div>
+            }
+            className="animate-fade-up"
+          >
             <ForexChart pair={selectedForex} height={260} />
-          </ChartContainer>
+          </MarketCard>
 
-          <ChartContainer title="Majors Overview">
+          <MarketCard title="Majors overview" className="animate-fade-up">
             <ForexOverview selected={selectedForex.pair} onSelect={setSelectedForex} />
-          </ChartContainer>
+          </MarketCard>
         </div>
       )}
 
-      {/* News Tab */}
+      {/* News */}
       {activeTab === "news" && (
-        <ChartContainer title="Latest News">
+        <MarketCard title="Latest news" className="animate-fade-up">
           <TradingViewNews />
-        </ChartContainer>
+        </MarketCard>
       )}
 
-      {/* Info note */}
-      <div className="rounded-lg border border-[var(--color-info)]/20 bg-[var(--bg-info)] p-2.5">
-        <p className="text-[10px] text-[var(--color-info)]">
-          <span className="font-medium">Note:</span> Positions are closed 30 minutes before high-impact events. Capital protected.
-        </p>
-      </div>
     </div>
   )
 }

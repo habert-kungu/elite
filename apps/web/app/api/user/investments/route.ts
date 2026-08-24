@@ -5,12 +5,7 @@ import { triggerNotification, CHANNELS, EVENTS } from '@/lib/pusher'
 import { DEPOSIT_NETWORK_KEYS } from '@/lib/deposit-addresses'
 import prisma from '@/lib/db'
 
-import { POOLS, MIN_DEPOSIT_USD, MAX_DEPOSIT_USD } from '@/lib/trading'
-
-const POOL_CONFIG = {
-  daily: { roi: POOLS.daily.roiMultiplier, durationDays: POOLS.daily.durationDays },
-  weekly: { roi: POOLS.weekly.roiMultiplier, durationDays: POOLS.weekly.durationDays },
-}
+import { PLANS, calculateRoi, formatPlanAmount, isSelectablePlan, validatePlanAmount } from '@/lib/trading'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,19 +25,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const parsedAmount = parseFloat(amount)
-    if (isNaN(parsedAmount) || parsedAmount < MIN_DEPOSIT_USD) {
-      return NextResponse.json(
-        { error: `Minimum investment is $${MIN_DEPOSIT_USD.toLocaleString()}` },
-        { status: 400 }
-      )
+    if (!isSelectablePlan(pool)) {
+      return NextResponse.json({ error: 'Invalid plan selection' }, { status: 400 })
     }
 
-    if (parsedAmount > MAX_DEPOSIT_USD) {
-      return NextResponse.json(
-        { error: 'Maximum investment is $1,000,000' },
-        { status: 400 }
-      )
+    const parsedAmount = parseFloat(amount)
+    const amountError = validatePlanAmount(parsedAmount, pool)
+    if (amountError) {
+      return NextResponse.json({ error: amountError }, { status: 400 })
     }
 
     if (typeof txHash !== 'string' || txHash.length < 10 || txHash.length > 200) {
@@ -54,15 +44,8 @@ export async function POST(request: NextRequest) {
 
     const selectedNetwork = typeof network === 'string' && DEPOSIT_NETWORK_KEYS.includes(network) ? network : 'TRC20'
 
-    if (!['daily', 'weekly'].includes(pool)) {
-      return NextResponse.json(
-        { error: 'Invalid pool selection' },
-        { status: 400 }
-      )
-    }
-
-    const config = POOL_CONFIG[pool as keyof typeof POOL_CONFIG]
-    const roi = config.roi
+    const plan = PLANS[pool]
+    const roi = calculateRoi(parsedAmount, pool)
 
     const investment = await prisma.investment.create({
       data: {
@@ -71,6 +54,7 @@ export async function POST(request: NextRequest) {
         amount: parsedAmount,
         txHash: txHash.trim(),
         network: selectedNetwork,
+        currency: plan.currency === 'BTC' ? 'BTC' : 'USDT',
         status: 'pending',
         roi,
       },
@@ -82,10 +66,10 @@ export async function POST(request: NextRequest) {
         type: 'investment',
         amount: parsedAmount,
         netAmount: parsedAmount,
-        currency: 'USDT',
+        currency: plan.currency === 'BTC' ? 'BTC' : 'USDT',
         txHash: txHash.trim(),
         status: 'pending',
-        note: `Investment submitted for ${pool === 'daily' ? '48H' : 'Weekly'} Pool - Awaiting approval`,
+        note: `Investment submitted for ${plan.name} - Awaiting approval`,
       },
     })
 
@@ -110,7 +94,7 @@ export async function POST(request: NextRequest) {
       investmentId: investment.id,
       amount: parsedAmount,
       pool,
-      message: `${session.name || session.email} submitted a $${parsedAmount} ${pool === 'daily' ? '48H' : 'Weekly'} Pool deposit`,
+      message: `${session.name || session.email} submitted a ${formatPlanAmount(parsedAmount, pool)} ${plan.name} deposit`,
     })
 
     return NextResponse.json({

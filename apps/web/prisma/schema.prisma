@@ -37,6 +37,7 @@ model Investment {
   amount      Float
   txHash      String?
   network     String    @default("TRC20")
+  currency    String    @default("USDT")
   status      String    @default("pending")
   roi         Float
   createdAt   DateTime  @default(now())

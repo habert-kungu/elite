@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminUser } from '@/lib/auth'
 import { investmentDecisionEmail, cycleCompletedEmail } from '@/lib/mail'
-import { POOLS, effectiveCycle } from '@/lib/trading'
+import { calculateRoi, effectiveCycle, formatPlanAmount, isPlanKey, planCurrency, poolLabel } from '@/lib/trading'
 import prisma from '@/lib/db'
 import { triggerNotification, CHANNELS, EVENTS } from '@/lib/pusher'
 
@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest) {
           netAmount: updated.amount,
           currency: 'USDT',
           status: 'completed',
-          note: `${updated.pool === 'daily' ? '48H' : 'Weekly'} Pool investment activated`,
+          note: `${poolLabel(updated.pool)} investment activated`,
         },
       })
 
@@ -77,7 +77,7 @@ export async function PATCH(request: NextRequest) {
         pool: updated.pool,
         targetValue,
         cycleId: cycle.id,
-        message: `Your ${updated.pool === 'daily' ? '48H' : 'Weekly'} Pool investment of $${updated.amount} has been approved!`,
+        message: `Your ${poolLabel(updated.pool)} investment of ${formatPlanAmount(updated.amount, updated.pool)} has been approved!`,
       })
       void investmentDecisionEmail(investment.user.email, { approved: true, amount: updated.amount, pool: updated.pool, targetValue, name: investment.user.name })
     } else if (action === 'reject') {
@@ -116,7 +116,7 @@ export async function PATCH(request: NextRequest) {
 }
 /**
  * Admin adjustment of a client's plan. Any subset of:
- *   pool: 'daily' | 'weekly'   amount: number   roi: number
+ *   pool: PlanKey   amount: number   roi: number
  *   status: 'pending' | 'active' | 'completed' | 'rejected'
  *   currentValue: number | progress: number (0–100)   — live cycle position
  * The active cycle is kept consistent (target = amount × roi) so the client's
@@ -133,10 +133,10 @@ async function updateInvestment(investmentId: string, body: Record<string, unkno
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : undefined)
 
   const pool = body.pool === undefined ? investment.pool : body.pool
-  if (pool !== 'daily' && pool !== 'weekly') return NextResponse.json({ error: 'Invalid pool' }, { status: 400 })
+  if (!isPlanKey(pool)) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
   const amount = num(body.amount) ?? investment.amount
   if (amount <= 0 || amount > 10_000_000) return NextResponse.json({ error: 'Amount must be between 0 and 10,000,000' }, { status: 400 })
-  const roi = num(body.roi) ?? (body.pool !== undefined && body.pool !== investment.pool ? POOLS[pool as 'daily' | 'weekly'].roiMultiplier : investment.roi)
+  const roi = num(body.roi) ?? (body.pool !== undefined && body.pool !== investment.pool ? calculateRoi(amount, pool) : investment.roi)
   if (roi < 1 || roi > 100) return NextResponse.json({ error: 'ROI must be between 1x and 100x' }, { status: 400 })
   const status = body.status === undefined ? investment.status : body.status
   if (!['pending', 'active', 'completed', 'rejected'].includes(status as string)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
@@ -167,7 +167,7 @@ async function updateInvestment(investmentId: string, body: Record<string, unkno
   const updated = await prisma.$transaction(async (tx) => {
     const inv = await tx.investment.update({
       where: { id: investmentId },
-      data: { pool: pool as string, amount, roi, status: status as string },
+      data: { pool: pool as string, amount, roi, status: status as string, currency: planCurrency(pool) === 'BTC' ? 'BTC' : 'USDT' },
     })
 
     const cycleData = {
@@ -192,9 +192,9 @@ async function updateInvestment(investmentId: string, body: Record<string, unkno
           type: 'return',
           amount: targetValue,
           netAmount: targetValue,
-          currency: 'USDT',
+          currency: planCurrency(pool) === 'BTC' ? 'BTC' : 'USDT',
           status: 'completed',
-          note: `${pool === 'daily' ? '48H' : 'Weekly'} Pool cycle completed`,
+          note: `${poolLabel(pool)} cycle completed`,
         },
       })
     } else if (becameActive) {
@@ -206,24 +206,24 @@ async function updateInvestment(investmentId: string, body: Record<string, unkno
           netAmount: amount,
           currency: 'USDT',
           status: 'completed',
-          note: `${pool === 'daily' ? '48H' : 'Weekly'} Pool investment activated`,
+          note: `${poolLabel(pool)} investment activated`,
         },
       })
     }
     return inv
   })
 
-  const poolLabel = pool === 'daily' ? '48H' : 'Weekly'
+  const label = poolLabel(pool)
   if (becameCompleted) {
     void cycleCompletedEmail(investment.user.email, { amount, pool: pool as string, returnAmount: targetValue, name: investment.user.name })
     void triggerNotification(CHANNELS.USER(updated.userId), EVENTS.CYCLE_COMPLETED, {
-      investmentId, pool: poolLabel, returnAmount: targetValue,
-      message: `Your ${poolLabel} Pool cycle completed — $${targetValue.toLocaleString()} is now available.`,
+      investmentId, pool: label, returnAmount: targetValue,
+      message: `Your ${label} cycle completed — ${formatPlanAmount(targetValue, pool)} is now available.`,
     })
   } else {
     void triggerNotification(CHANNELS.USER(updated.userId), EVENTS.INVESTMENT_UPDATED, {
-      investmentId, pool: poolLabel, amount, roi, targetValue, currentValue, progress, status,
-      message: `Your ${poolLabel} Pool plan was updated: $${amount.toLocaleString()} at ${roi}x (target $${targetValue.toLocaleString()}).`,
+      investmentId, pool: label, amount, roi, targetValue, currentValue, progress, status,
+      message: `Your ${label} plan was updated: ${formatPlanAmount(amount, pool)} at ${roi}x (target ${formatPlanAmount(targetValue, pool)}).`,
     })
   }
 

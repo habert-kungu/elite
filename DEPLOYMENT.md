@@ -1,4 +1,4 @@
-# Deploying AlphaReserve
+# Deploying Elite Forex Hub
 
 The web app is a Next.js (standalone) container backed by a SQLite database on a
 persistent volume. Everything builds from the repo root.
@@ -21,7 +21,7 @@ docker compose up -d --build
 open http://localhost:3000
 ```
 
-The first boot copies a **migrated + seeded** database onto the `alphareserve-data`
+The first boot copies a **migrated + seeded** database onto the `elite-data`
 volume. Subsequent boots reuse that volume, so your data persists across
 redeploys. Rebuilding the image never overwrites an existing volume.
 
@@ -36,7 +36,7 @@ live** (rotate the admin password, or start from a clean volume and sign up):
 | User  | `test@nextlevel.com`   | `user123`  |
 
 To start with an empty database instead, remove the volume before first run
-(`docker volume rm trade_alphareserve-data`) and comment out the `db:seed` step
+(`docker volume rm elite_elite-data`) and comment out the `db:seed` step
 in the `Dockerfile` builder stage.
 
 ## Environment variables
@@ -47,7 +47,7 @@ in the `Dockerfile` builder stage.
 | `DATABASE_URL`                 | preset   | `file:/data/prod.db` (on the volume). Leave as-is. |
 | `PUSHER_*` / `NEXT_PUBLIC_PUSHER_*` | No  | Real-time notifications. Unset = feature disabled. |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_SECURE` | No | Outbound email (password reset, welcome, deposit approved/rejected, admin-created accounts). Unset `SMTP_HOST` = emails are printed to the container log instead. Any SMTP provider works (Brevo, Resend SMTP, Gmail app password, Mailgun…). |
-| `MAIL_FROM`                    | No       | Sender, e.g. `AlphaReserve <no-reply@alphareserve.net>`. Defaults to `no-reply@$DOMAIN`. |
+| `MAIL_FROM`                    | No       | Sender, e.g. `Elite Forex Hub <no-reply@eliteforexhub.com>`. Defaults to `no-reply@$DOMAIN`. |
 | `APP_URL`                      | No       | Public origin used in emailed links. Defaults to `https://$DOMAIN`. |
 | `ADMIN_EMAIL`                  | No       | Receives a notice for every new deposit request. |
 
@@ -60,9 +60,9 @@ Ultahost's mailboxes are hosted on Open-Xchange Cloud (`*.cloudeu.xion.oxcs.net`
 SMTP_HOST=smtp.cloudeu.xion.oxcs.net
 SMTP_PORT=465
 SMTP_SECURE=true            # or SMTP_PORT=587 + SMTP_SECURE=false (STARTTLS)
-SMTP_USER=no-reply@alphareserve.net   # the full mailbox address
+SMTP_USER=no-reply@eliteforexhub.com   # the full mailbox address
 SMTP_PASS=...                         # that mailbox's password
-MAIL_FROM="AlphaReserve <no-reply@alphareserve.net>"   # must be the same mailbox (OX rejects other senders)
+MAIL_FROM="Elite Forex Hub <no-reply@eliteforexhub.com>"   # must be the same mailbox (OX rejects other senders)
 ```
 
 The DNS zone must point mail at OX, otherwise connections go to the web VPS and
@@ -94,11 +94,11 @@ docker compose up -d --build   # data on the volume is preserved
 ## Building the image directly (without Compose)
 
 ```bash
-docker build -t alphareserve-web .
+docker build -t elite-web .
 docker run -d -p 3000:3000 \
   -e JWT_SECRET="$(openssl rand -base64 32)" \
-  -v alphareserve-data:/data \
-  alphareserve-web
+  -v elite-data:/data \
+  elite-web
 ```
 
 ## Deploy to a VPS + connect a domain
@@ -146,7 +146,7 @@ JWT_SECRET=$(openssl rand -base64 32)
 # SMTP_PORT=587
 # SMTP_USER=...
 # SMTP_PASS=...
-# MAIL_FROM="AlphaReserve <no-reply@alphareserve.net>"
+# MAIL_FROM="Elite Forex Hub <no-reply@eliteforexhub.com>"
 # ADMIN_EMAIL=you@example.com
 # Optional Pusher real-time notifications:
 # PUSHER_APP_ID=...
@@ -185,9 +185,9 @@ docker compose --profile proxy down
 docker compose --profile proxy up -d
 ```
 
-> **Backups**: the database lives in the `alphareserve-data` Docker volume.
+> **Backups**: the database lives in the `elite-data` Docker volume.
 > Back it up with:
-> `docker run --rm -v alphareserve-data:/data -v "$PWD":/backup alpine tar czf /backup/db-backup.tgz -C /data prod.db`
+> `docker run --rm -v elite-data:/data -v "$PWD":/backup alpine tar czf /backup/db-backup.tgz -C /data prod.db`
 
 ### Without the proxy (IP only, no HTTPS)
 

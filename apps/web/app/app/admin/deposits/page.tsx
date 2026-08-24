@@ -1,11 +1,12 @@
 "use client"
 
-
-import Link from "next/link"
-import { Card, StatusPill, statusTone } from "@/components/ui"
-import { Pagination } from "@/components/data-table"
 import * as React from "react"
+import { Badge, Button, Card, EmptyState, statusTone } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
+import { Pagination } from "@/components/data-table"
 import { useCachedFetch, invalidateCache } from "@/lib/use-cached-fetch"
+import { IconInbox } from "@tabler/icons-react"
+import { FilterBar, InvestorLink, KV, Skeleton, StatGrid, planAmount, poolLabel } from "../_components"
 
 const PAGE_SIZE = 10
 
@@ -25,6 +26,13 @@ interface Investment {
 }
 
 interface Stats { all: number; pending: number; active: number; completed: number; rejected: number }
+
+const FILTERS = [
+  { key: "pending", label: "Pending" },
+  { key: "active", label: "Active" },
+  { key: "rejected", label: "Rejected" },
+  { key: "all", label: "All" },
+]
 
 export default function DepositsPage() {
   const [filter, setFilter] = React.useState("pending")
@@ -57,7 +65,7 @@ export default function DepositsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ investmentId: id, action: 'approve' }),
       })
-      
+
       if (res.ok) {
         await fetchInvestments()
       }
@@ -76,7 +84,7 @@ export default function DepositsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ investmentId: id, action: 'reject' }),
       })
-      
+
       if (res.ok) {
         await fetchInvestments()
       }
@@ -99,134 +107,148 @@ export default function DepositsPage() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  if (loading || !data) {
-    return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-8 w-32 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-3 gap-3">
-          {[1,2,3].map(i => (
-            <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
-          ))}
-        </div>
-      </div>
-    )
-  }
+  if (loading || !data) return <Skeleton rows={5} />
+
+  const networkLabel = (n: string) => (n === 'BTC' ? 'BTC' : 'USDT TRC20')
+  const shortHash = (h: string) => (h.length > 18 ? `${h.slice(0, 8)}…${h.slice(-6)}` : h)
+
+  const decisionButtons = (deposit: Investment) => (
+    <div className="flex items-center gap-2">
+      <Button variant="success" size="sm" onClick={() => handleApprove(deposit.id)} disabled={processing === deposit.id} loading={processing === deposit.id}>
+        Approve
+      </Button>
+      <Button variant="danger" size="sm" onClick={() => handleReject(deposit.id)} disabled={processing === deposit.id}>
+        Reject
+      </Button>
+    </div>
+  )
+
+  const empty = (
+    <EmptyState
+      icon={<IconInbox className="h-5 w-5" stroke={1.8} />}
+      title="No deposits found"
+      description={filter === "pending" ? "Nothing is waiting for review right now." : "Try another filter."}
+    />
+  )
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Deposits</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Approve or reject deposit requests</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Pending:</span>
-          <span className="text-sm font-bold text-amber-500">{pendingCount}</span>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Deposits"
+        description="Approve or reject deposit requests"
+        actions={
+          <Badge tone={pendingCount ? "warning" : "neutral"} dot>
+            {pendingCount} pending
+          </Badge>
+        }
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-3 text-center">
-          <div className="text-lg font-bold text-amber-500">{pendingCount}</div>
-          <div className="text-[10px] text-muted-foreground">Pending</div>
-        </Card>
-        <Card className="p-3 text-center">
-          <div className="text-lg font-bold text-emerald-500">{activeCount}</div>
-          <div className="text-[10px] text-muted-foreground">Active</div>
-        </Card>
-        <Card className="p-3 text-center">
-          <div className="text-lg font-bold text-foreground">{stats.all}</div>
-          <div className="text-[10px] text-muted-foreground">Total</div>
-        </Card>
-      </div>
+      <StatGrid
+        items={[
+          { label: "Pending", value: pendingCount, className: pendingCount ? "text-warning" : undefined },
+          { label: "Active", value: activeCount, className: "text-success" },
+          { label: "Total", value: stats.all },
+        ]}
+      />
 
-      {/* Filters */}
-      <Card className="p-3">
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { key: "pending", label: "Pending" },
-            { key: "active", label: "Active" },
-            { key: "rejected", label: "Rejected" },
-            { key: "all", label: "All" },
-          ].map((f) => (
-            <button
-              key={f.key}
-              onClick={() => changeFilter(f.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                filter === f.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </Card>
+      <FilterBar value={filter} onChange={changeFilter} options={FILTERS} />
 
-      {/* Deposits List */}
-      <div className="space-y-3">
-        {pageItems.map((deposit) => (
-          <Card key={deposit.id} className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[oklch(0.62_0.12_178)/10] flex items-center justify-center text-sm font-bold text-primary">
-                  {deposit.userName?.charAt(0).toUpperCase() || deposit.userEmail.charAt(0).toUpperCase()}
+      {/* Mobile: stacked rows */}
+      <Card className="overflow-hidden sm:hidden">
+        {pageItems.length === 0 ? (
+          empty
+        ) : (
+          <div className="divide-y divide-[var(--background-hover)]">
+            {pageItems.map((deposit) => (
+              <div key={deposit.id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <InvestorLink id={deposit.userId} name={deposit.userName} email={deposit.userEmail} />
+                  <Badge tone={statusTone(deposit.status)} className="capitalize">
+                    {deposit.status}
+                  </Badge>
                 </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={`/app/admin/users/${deposit.userId}`} className="text-sm font-medium text-foreground hover:underline">{deposit.userName || deposit.userEmail}</Link>
-                    <StatusPill tone={statusTone(deposit.status)} className="capitalize">{deposit.status}</StatusPill>
-                  </div>
-                  <div className="truncate text-[10px] text-muted-foreground">{deposit.userEmail}</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <KV label="Amount">{planAmount(deposit.amount, deposit.pool)}</KV>
+                  <KV label="Plan">{poolLabel(deposit.pool, true)} · {deposit.roi}x</KV>
+                  <KV label="Network">{networkLabel(deposit.network)}</KV>
+                  <KV label="Submitted">{formatDate(deposit.createdAt)}</KV>
+                  {deposit.userTelegram && <KV label="Telegram">{deposit.userTelegram}</KV>}
                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between sm:justify-end gap-4">
-                <div className="text-right">
-                  <div className="text-base font-medium text-foreground">${deposit.amount.toLocaleString()}</div>
-                  <div className="text-[10px] text-muted-foreground">{deposit.pool === 'daily' ? '48H Pool' : 'Weekly Pool'} • {deposit.roi}x • {deposit.network === 'BTC' ? 'BTC' : 'USDT TRC20'} • {formatDate(deposit.createdAt)}</div>
-                </div>
-                
-                {deposit.status === "pending" && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleApprove(deposit.id)}
-                      disabled={processing === deposit.id}
-                      className="px-3 py-1.5 text-xs font-medium bg-[var(--color-success)] text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
-                    >
-                      {processing === deposit.id ? '...' : 'Approve'}
-                    </button>
-                    <button
-                      onClick={() => handleReject(deposit.id)}
-                      disabled={processing === deposit.id}
-                      className="px-3 py-1.5 text-xs font-medium border border-destructive/30 text-destructive rounded-lg hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                    >
-                      {processing === deposit.id ? '...' : 'Reject'}
-                    </button>
+                {deposit.txHash && (
+                  <div className="break-all font-mono text-[12px] leading-[18px] text-less" title={deposit.txHash}>
+                    TX {deposit.txHash}
                   </div>
                 )}
+                {deposit.status === "pending" && decisionButtons(deposit)}
               </div>
-            </div>
-            
-            {deposit.txHash && (
-              <div className="mt-3 pt-3 border-t border-border/50">
-                <div className="text-[10px] text-muted-foreground">
-                  <span className="font-mono">TX: {deposit.txHash}</span>
-                  {deposit.userTelegram && <span className="ml-2">• TG: {deposit.userTelegram}</span>}
-                </div>
-              </div>
-            )}
-          </Card>
-        ))}
-        
-        {pageItems.length === 0 && (
-          <Card className="p-8 text-center">
-            <div className="text-sm text-muted-foreground">No deposits found</div>
-          </Card>
+            ))}
+          </div>
         )}
-      </div>
+      </Card>
+
+      {/* Desktop: table */}
+      <Card className="hidden overflow-hidden sm:block">
+        {pageItems.length === 0 ? (
+          empty
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-linear min-w-[720px]">
+              <thead>
+                <tr>
+                  <th>Investor</th>
+                  <th>Plan</th>
+                  <th className="text-right">Amount</th>
+                  <th className="hidden lg:table-cell">Reference</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageItems.map((deposit) => (
+                  <tr key={deposit.id}>
+                    <td>
+                      <InvestorLink id={deposit.userId} name={deposit.userName} email={deposit.userEmail} size="sm" />
+                    </td>
+                    <td>
+                      <div className="text-foreground">
+                        {poolLabel(deposit.pool, true)} <span className="text-less">· {deposit.roi}x</span>
+                      </div>
+                      <div className="text-[12px] leading-[18px] text-less">{networkLabel(deposit.network)}</div>
+                    </td>
+                    <td className="text-right font-bold tabular-nums text-foreground">{planAmount(deposit.amount, deposit.pool)}</td>
+                    <td className="hidden lg:table-cell">
+                      {deposit.txHash ? (
+                        <span className="font-mono text-[12px] text-less" title={deposit.txHash}>
+                          {shortHash(deposit.txHash)}
+                        </span>
+                      ) : (
+                        <span className="text-less">—</span>
+                      )}
+                      {deposit.userTelegram && <div className="text-[12px] leading-[18px] text-less">TG {deposit.userTelegram}</div>}
+                    </td>
+                    <td className="text-[12px] text-less">{formatDate(deposit.createdAt)}</td>
+                    <td>
+                      <Badge tone={statusTone(deposit.status)} className="capitalize">
+                        {deposit.status}
+                      </Badge>
+                    </td>
+                    <td className="text-right">
+                      {deposit.status === "pending" ? (
+                        <div className="flex justify-end">
+                          {decisionButtons(deposit)}
+                        </div>
+                      ) : (
+                        <span className="text-[12px] text-less">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Pagination page={page} pageCount={pageCount} onPageChange={setPage} total={total} start={start} end={end} className="mt-4" />
     </div>

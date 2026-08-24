@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/db'
-import { effectiveCycle } from '@/lib/trading'
+import { effectiveCycle, planCurrency, planFor } from '@/lib/trading'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,8 +32,16 @@ export async function GET(request: NextRequest) {
     const activeInvestments = investments.filter((i: any) => i.status === 'active' || i.status === 'pending')
     const completedInvestments = investments.filter((i: any) => i.status === 'completed')
 
-    const totalInvested = investments.reduce((sum: number, i: any) => sum + i.amount, 0)
-    const totalProfit = completedInvestments.reduce((sum: number, i: any) => sum + (i.amount * i.roi - i.amount), 0)
+    // USD totals only cover USD plans; BTC plan positions are reported separately.
+    const isUsd = (i: any) => planCurrency(i.pool) !== 'BTC'
+    const usdInvestments = investments.filter(isUsd)
+    const usdActive = activeInvestments.filter(isUsd)
+    const usdCompleted = completedInvestments.filter(isUsd)
+    const btcInvestments = investments.filter((i: any) => !isUsd(i))
+
+    const totalInvested = usdInvestments.reduce((sum: number, i: any) => sum + i.amount, 0)
+    const totalProfit = usdCompleted.reduce((sum: number, i: any) => sum + (i.amount * i.roi - i.amount), 0)
+    const btcInvested = btcInvestments.reduce((sum: number, i: any) => sum + i.amount, 0)
     
     const activeCycles = investments
       .filter((i: any) => i.status === 'active' && i.cycles.length > 0)
@@ -45,6 +53,9 @@ export async function GET(request: NextRequest) {
         return {
           id: cycle.id,
           pool,
+          planName: planFor(pool).name,
+          currency: planCurrency(pool),
+          durationDays: planFor(pool).durationDays,
           roi: inv?.roi ?? (cycle.startValue ? cycle.targetValue / cycle.startValue : 10),
           startValue: cycle.startValue,
           currentValue: live.currentValue,
@@ -55,16 +66,17 @@ export async function GET(request: NextRequest) {
         }
       })
 
-    const pendingReturns = activeCycles.reduce((sum: number, c: any) => sum + (c.targetValue - c.currentValue), 0)
+    const pendingReturns = activeCycles.filter((c: any) => c.currency !== 'BTC').reduce((sum: number, c: any) => sum + (c.targetValue - c.currentValue), 0)
 
-    const totalAssets = completedInvestments.reduce((sum: number, i: any) => sum + i.amount * i.roi, 0) + 
-      activeInvestments.reduce((sum: number, i: any) => sum + i.amount, 0)
+    const totalAssets = usdCompleted.reduce((sum: number, i: any) => sum + i.amount * i.roi, 0) +
+      usdActive.reduce((sum: number, i: any) => sum + i.amount, 0)
 
     return NextResponse.json({
       totalAssets: Math.round(totalAssets * 100) / 100,
       totalInvested: Math.round(totalInvested * 100) / 100,
       totalProfit: Math.round(totalProfit * 100) / 100,
       pendingReturns: Math.round(pendingReturns * 100) / 100,
+      btcInvested: Math.round(btcInvested * 1e6) / 1e6,
       activeCycles,
       recentTransactions: transactions.map((t: any) => ({
         id: t.id,

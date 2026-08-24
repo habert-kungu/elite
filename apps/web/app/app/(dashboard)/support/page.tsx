@@ -1,26 +1,26 @@
 "use client"
 
-
-import { Card } from "@/components/ui"
 import * as React from "react"
-import Link from "next/link"
+import { Badge, Button, Card, CardHeader, Notice, Select, TextArea, TextField } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
+import { IconBrandTelegram, IconChevronDown, IconCircleCheck, IconMail } from "@tabler/icons-react"
 
 const FAQS = [
   {
     q: "How do I start investing?",
-    a: "Create an account, choose a plan (48-Hour or Weekly Pool), and contact us via Telegram to initiate your investment.",
+    a: "Create an account, choose a plan (Daily 24h, Pro 5 days, 8 days or Premium 12 days in BTC), and contact us via Telegram to initiate your investment.",
   },
   {
     q: "What is the minimum investment?",
-    a: "The minimum investment is $500 USDT for both pools.",
+    a: "It depends on the plan: $300 on Daily, $1,000 on Pro, $10,000 on the 8 days plan, and ₿1 on Premium.",
   },
   {
     q: "How are returns calculated?",
-    a: "Returns are fixed at 10x for both pools — e.g. $500 → $5,000 on the 48-Hour plan, $2,000 → $20,000 on the Weekly plan. No trading experience needed.",
+    a: "Every plan has a fixed payout table — e.g. $300 → $3,000 on Daily, $1,000 → $15,000 on Pro, $10,000 → $150,000 on the 8 days plan and ₿1 → ₿5 on Premium. No trading experience needed.",
   },
   {
     q: "When do I receive returns?",
-    a: "48-Hour pool profits are paid within 48 hours. Weekly pool profits are paid after 7 days.",
+    a: "At the end of the plan: 24 hours on Daily, 5 days on Pro, 8 days on the 8 days plan and 12 days on Premium.",
   },
   {
     q: "Is my capital guaranteed?",
@@ -32,149 +32,113 @@ const FAQS = [
   },
 ]
 
+const SUPPORT_EMAIL = "support@nextlevel.com"
+const TELEGRAM_URL = "https://t.me/khan_bashiri"
+
+const TOPICS = ["Deposits", "Withdrawals", "Account & security", "Plans & returns", "Something else"]
+
+/** Deriv Accordion row: 16px radius card, Sub 2 bold question, chevron, P2 answer. */
+function FaqRow({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
+  return (
+    <Card className="overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 p-5 text-left transition-colors hover:bg-hover"
+      >
+        <span className="text-[16px] font-bold leading-6 text-foreground">{q}</span>
+        <IconChevronDown className={`h-4 w-4 flex-shrink-0 text-less transition-transform ${open ? "rotate-180" : ""}`} stroke={2} />
+      </button>
+      {open && (
+        <div className="px-5 pb-5">
+          <p className="text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">{a}</p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
 export default function SupportPage() {
   const [openIndex, setOpenIndex] = React.useState<number | null>(null)
 
+  // Contact form: composes an email to the support address in the visitor's
+  // own mail client. There is no server endpoint for this form.
+  const [contact, setContact] = React.useState({ topic: TOPICS[0]!, subject: "", message: "" })
+  const [sent, setSent] = React.useState(false)
+
+  const sendContact = (e: React.FormEvent) => {
+    e.preventDefault()
+    const subject = encodeURIComponent(`[${contact.topic}] ${contact.subject}`)
+    const body = encodeURIComponent(contact.message)
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+    setSent(true)
+  }
+
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center sm:gap-0">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
-            Support
-          </h1>
-          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-            Get help with your account
-          </p>
+    <div className="space-y-6">
+      <PageHeader title="Help centre" description="Answers to common questions, and a direct line to the team when you need one." />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        {/* FAQ */}
+        <div className="space-y-3 lg:col-span-3">
+          <h2 className="text-[16px] font-bold leading-6 text-foreground">Frequently asked questions</h2>
+          {FAQS.map((faq, i) => (
+            <FaqRow key={i} q={faq.q} a={faq.a} open={openIndex === i} onToggle={() => setOpenIndex(openIndex === i ? null : i)} />
+          ))}
         </div>
-        <Link
-          href="/app"
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-        <div className="space-y-3 sm:space-y-4">
-          <Card className="p-4 sm:p-5">
-            <h3 className="mb-3 text-sm font-medium text-foreground sm:mb-4 sm:text-base">
-              Contact Us
-            </h3>
-
-            <a
-              href="https://t.me/khan_bashiri"
-              target="_blank"
-              className="mb-3 flex items-center gap-3 rounded-xl bg-[oklch(0.21_0_0)/8] p-3 transition-colors hover:bg-[oklch(0.21_0_0)/12] sm:mb-4 sm:gap-4 sm:p-4"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[oklch(0.21_0_0)/15] sm:h-12 sm:w-12">
-                <svg
-                  className="h-5 w-5 text-foreground sm:h-6 sm:w-6"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 6.8-1.23 5.1-4.91 6.5-7.47 6.5-1.4 0-2.6-.8-3.4-1.8l-1.4 1.4c.9.9 2.4 1.5 3.8 1.5 4.3 0 8.6-3.3 9.8-7.3 1.1-3.6.7-5.6-.5-7.8l-1.4 1.4c.8 1.1 1.2 2.5 1.2 3.9z" />
-                </svg>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-foreground">
-                  Telegram
+        {/* Contact */}
+        <div className="space-y-4 lg:col-span-2">
+          <Card className="p-5 sm:p-6">
+            <CardHeader title="Contact us" description="Pick the fastest channel, or send us a message below." />
+            <div className="mt-4 space-y-2">
+              <a href={TELEGRAM_URL} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-[8px] bg-background p-3 transition-colors hover:bg-hover">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                  <IconBrandTelegram className="h-4 w-4" stroke={1.8} />
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Chat with us directly
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-bold text-foreground">Telegram</div>
+                  <div className="text-[12px] leading-[18px] text-less">Chat with us directly</div>
                 </div>
-              </div>
-            </a>
-
-            <div className="rounded-xl bg-secondary p-3 sm:p-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary sm:h-12 sm:w-12">
-                  <svg
-                    className="h-5 w-5 text-muted-foreground sm:h-6 sm:w-6"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
+                <Badge tone="success" dot>~5 min</Badge>
+              </a>
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-3 rounded-[8px] bg-background p-3 transition-colors hover:bg-hover">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-hover text-less">
+                  <IconMail className="h-4 w-4" stroke={1.8} />
                 </div>
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    Email
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    support@nextlevel.com
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-bold text-foreground">Email</div>
+                  <div className="truncate text-[12px] leading-[18px] text-less">{SUPPORT_EMAIL}</div>
                 </div>
-              </div>
+                <Badge tone="neutral">~24 h</Badge>
+              </a>
             </div>
           </Card>
 
-          <Card className="p-4 sm:p-5">
-            <h3 className="mb-3 text-sm font-medium text-foreground sm:mb-4 sm:text-base">
-              Response Time
-            </h3>
-            <div className="space-y-2 sm:space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground sm:text-sm">
-                  Telegram
-                </span>
-                <span className="text-xs font-medium text-[oklch(0.62_0.12_178)] sm:text-sm">
-                  ~5 minutes
-                </span>
+          <Card className="p-5 sm:p-6">
+            <CardHeader title="Send a message" description="We reply by email within 24 hours." />
+            {sent && (
+              <div className="mt-4">
+                <Notice tone="success" icon={<IconCircleCheck className="h-4 w-4" stroke={1.8} />}>
+                  Your email app should have opened with the message ready to send. If it didn't, write to {SUPPORT_EMAIL} directly.
+                </Notice>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground sm:text-sm">
-                  Email
-                </span>
-                <span className="text-xs font-medium text-foreground sm:text-sm">
-                  ~24 hours
-                </span>
+            )}
+            <form onSubmit={sendContact} className="mt-5 space-y-4">
+              <Select label="Topic" name="topic" value={contact.topic} onChange={(e) => setContact({ ...contact, topic: e.target.value })}>
+                {TOPICS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+              <TextField label="Subject" name="subject" value={contact.subject} onChange={(e) => setContact({ ...contact, subject: e.target.value })} required maxLength={120} placeholder="Short summary" />
+              <TextArea label="Message" name="message" value={contact.message} onChange={(e) => setContact({ ...contact, message: e.target.value })} required rows={5} placeholder="Tell us what's going on, including any transaction IDs." />
+              <div className="flex justify-end">
+                <Button type="submit">Send message</Button>
               </div>
-            </div>
+            </form>
           </Card>
         </div>
-
-        <Card className="p-4 sm:p-5">
-          <h3 className="mb-3 text-sm font-medium text-foreground sm:mb-4 sm:text-base">
-            Frequently Asked Questions
-          </h3>
-
-          <div className="space-y-2 sm:space-y-3">
-            {FAQS.map((faq, i) => (
-              <div
-                key={i}
-                className="overflow-hidden rounded-xl border border-border"
-              >
-                <button
-                  onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                  className="flex w-full items-center justify-between p-3 text-left transition-colors hover:bg-secondary/30 sm:p-4"
-                >
-                  <span className="text-xs font-medium text-foreground sm:text-sm">
-                    {faq.q}
-                  </span>
-                  <svg
-                    className={`ml-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${openIndex === i ? "rotate-180" : ""}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-                {openIndex === i && (
-                  <div className="px-3 pb-3 sm:px-4 sm:pb-4">
-                    <p className="text-xs text-muted-foreground sm:text-sm">
-                      {faq.a}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
       </div>
     </div>
   )

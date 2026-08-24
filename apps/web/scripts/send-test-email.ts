@@ -21,7 +21,7 @@ async function main() {
     process.env.SMTP_SECURE = String(acct.smtp.secure)
     process.env.SMTP_USER = acct.user
     process.env.SMTP_PASS = acct.pass
-    process.env.MAIL_FROM = `AlphaReserve <${acct.user}>`
+    process.env.MAIL_FROM = `Elite Forex Hub <${acct.user}>`
     console.log(`Ethereal inbox: ${acct.user} (https://ethereal.email/login — pass: ${acct.pass})`)
   } else if (!process.env.SMTP_HOST) {
     console.error("SMTP_HOST is not set. Configure SMTP_* in .env, or run with --ethereal for a dry run.")
@@ -33,8 +33,8 @@ async function main() {
 
   // Real sends must never carry localhost links.
   if (!ethereal && !process.env.APP_URL && !process.env.DOMAIN) {
-    process.env.APP_URL = "https://alphareserve.net"
-    console.log("APP_URL not set — using https://alphareserve.net for links")
+    process.env.APP_URL = "https://eliteforexhub.com"
+    console.log("APP_URL not set — using https://eliteforexhub.com for links")
   }
 
   // Import after env is set so the transport picks it up.

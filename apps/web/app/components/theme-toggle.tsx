@@ -2,36 +2,39 @@
 
 import * as React from "react"
 import { useTheme } from "next-themes"
+import { IconMoon, IconSun } from "@tabler/icons-react"
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => setMounted(true), [])
 
   // Until mounted the server and client can't agree on the theme, so render
   // neutral attributes to avoid a hydration mismatch.
-  const isDark = mounted && resolvedTheme === "dark"
+  const isDark = mounted && theme === "dark"
 
   return (
     <button
       type="button"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => {
+        const currentlyDark = document.documentElement.classList.contains("dark")
+        const nextTheme = currentlyDark ? "light" : "dark"
+        document.documentElement.classList.toggle("dark", nextTheme === "dark")
+        document.documentElement.style.colorScheme = nextTheme
+        window.localStorage.setItem("theme", nextTheme)
+        setTheme(nextTheme)
+      }}
       aria-label={!mounted ? "Toggle theme" : isDark ? "Switch to light theme" : "Switch to dark theme"}
       title={!mounted ? "Toggle theme (D)" : `${isDark ? "Light" : "Dark"} theme (D)`}
-      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      className="flex h-9 w-9 items-center justify-center rounded-[4px] text-less transition-colors hover:bg-hover hover:text-foreground"
     >
       {!mounted ? (
         <span className="block h-5 w-5" />
       ) : isDark ? (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-        </svg>
+        <IconSun className="h-5 w-5" stroke={1.7} />
       ) : (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
+        <IconMoon className="h-5 w-5" stroke={1.7} />
       )}
     </button>
   )

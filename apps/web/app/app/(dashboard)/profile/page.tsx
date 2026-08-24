@@ -1,32 +1,31 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import { Card } from "@/components/ui"
+import { Badge, Button, ButtonLink, Card, CardHeader, Notice, Skeleton, Tabs, TextField } from "@/components/ui"
+import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
 import { useCachedFetch, invalidateCache } from "@/lib/use-cached-fetch"
+import {
+  IconAlertTriangle,
+  IconBrandTelegram,
+  IconCalendar,
+  IconCircleCheck,
+  IconDevices,
+  IconMail,
+  IconRosetteDiscountCheckFilled,
+} from "@tabler/icons-react"
 
 interface Profile {
   user: { id: string; email: string; name: string | null; telegram: string | null; walletAddress: string | null; role: string; createdAt: string }
   stats: { totalDeposits: number; totalReturns: number; activeInvestments: number; completedCycles: number }
 }
 
-const inputCls =
-  "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground"
+type Section = "details" | "security"
 
-/** X-style verified check: blue scalloped badge with a white tick. */
-export function VerifiedBadge({ className = "h-5 w-5", title = "Verified account" }: { className?: string; title?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-label={title} role="img">
-      <title>{title}</title>
-      <path
-        fill="#1d9bf0"
-        d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z"
-      />
-      <path fill="#fff" d="M10.3 16.1l-3.4-3.4 1.4-1.4 2 2 5.4-5.4 1.4 1.4z" />
-    </svg>
-  )
-}
+const SECTIONS: { value: Section; label: string }[] = [
+  { value: "details", label: "Personal details" },
+  { value: "security", label: "Security" },
+]
 
 function initials(name: string | null, email: string) {
   const src = (name || email).trim()
@@ -40,10 +39,31 @@ function handleFor(p: Profile["user"]) {
   return `@${p.email.split("@")[0]}`
 }
 
+/** Inline status message: success or danger notice with the matching icon. */
+function StatusNotice({ msg }: { msg: { tone: "ok" | "err"; text: string } | null }) {
+  if (!msg) return null
+  return (
+    <Notice tone={msg.tone === "ok" ? "success" : "danger"} icon={msg.tone === "ok" ? <IconCircleCheck className="h-4 w-4" stroke={1.8} /> : <IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
+      {msg.text}
+    </Notice>
+  )
+}
+
+/** One cell of the account summary strip. */
+function SummaryCell({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "success" }) {
+  return (
+    <div className="min-w-0 px-4 py-4 sm:px-6">
+      <div className="text-[12px] leading-[18px] text-less">{label}</div>
+      <div className={`mt-0.5 truncate text-[20px] font-bold leading-[30px] tabular-nums md:text-[24px] md:leading-9 ${tone === "success" ? "text-success" : "text-foreground"}`}>{value}</div>
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const { user: session, setUser } = useAuth()
   const { data, loading, refresh, setData } = useCachedFetch<Profile>(session ? "/api/user/profile" : null, { ttl: 60_000 })
+
+  const [section, setSection] = React.useState<Section>("details")
 
   const [editing, setEditing] = React.useState(false)
   const [form, setForm] = React.useState({ name: "", telegram: "", walletAddress: "" })
@@ -164,15 +184,14 @@ export default function ProfilePage() {
 
   if (loading || !data) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
-        <div className="h-44 animate-pulse rounded-xl bg-muted" />
-        <div className="grid grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
-          ))}
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
         </div>
-        <div className="h-48 animate-pulse rounded-xl bg-muted" />
+        <Skeleton className="h-10 w-full max-w-sm" />
+        <Skeleton className="h-48 w-full rounded-[16px]" />
+        <Skeleton className="h-64 w-full rounded-[16px]" />
       </div>
     )
   }
@@ -182,230 +201,222 @@ export default function ProfilePage() {
   const displayName = p.name || p.email.split("@")[0]
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground sm:text-2xl">Profile</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">Manage your account</p>
-        </div>
-        <Link href="/app" className="text-xs text-muted-foreground hover:text-foreground">← Back to Dashboard</Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Account settings" description="Manage your personal details, security and signed-in devices." />
 
-      {/* Header card */}
-      <Card className="overflow-hidden">
-        <div className="p-4 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground sm:h-16 sm:w-16 sm:text-xl">
-              {initials(p.name, p.email)}
+      <Tabs items={SECTIONS} value={section} onChange={setSection} />
+
+      {section === "details" && (
+        <div className="space-y-4 animate-fade-up">
+          {/* Identity + summary strip */}
+          <Card className="overflow-hidden">
+            <div className="flex items-start gap-4 p-5 sm:p-6">
+              <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-primary text-[18px] font-bold text-primary-foreground sm:h-16 sm:w-16 sm:text-[20px]">
+                {initials(p.name, p.email)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-[16px] font-bold leading-6 text-foreground md:text-[20px] md:leading-[30px]">{displayName}</h2>
+                  {tfa?.enabled && (
+                    <IconRosetteDiscountCheckFilled
+                      className="h-5 w-5 text-info"
+                      aria-label="Verified account — two-step verification is on"
+                      title="Verified with two-step verification"
+                    />
+                  )}
+                  {p.role === "admin" && <Badge tone="info">Admin</Badge>}
+                </div>
+                <p className="text-[12px] leading-[18px] text-less md:text-[14px] md:leading-5">{handleFor(p)}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] leading-[18px] text-general md:text-[14px] md:leading-5">
+                  <span className="inline-flex items-center gap-1.5">
+                    <IconMail className="h-4 w-4 text-less" stroke={1.8} />
+                    {p.email}
+                  </span>
+                  {p.telegram && (
+                    <a href={`https://t.me/${p.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      <IconBrandTelegram className="h-4 w-4 text-less" stroke={1.8} />
+                      {handleFor(p)}
+                    </a>
+                  )}
+                  <span className="inline-flex items-center gap-1.5">
+                    <IconCalendar className="h-4 w-4 text-less" stroke={1.8} />
+                    Joined {joined}
+                  </span>
+                </div>
+              </div>
             </div>
-            {!editing && (
-              <button
-                onClick={startEdit}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary sm:text-[13px]"
-              >
-                Edit profile
-              </button>
-            )}
-          </div>
-
-          {!editing ? (
-            <div className="mt-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h2 className="text-lg font-semibold leading-tight text-foreground sm:text-xl">{displayName}</h2>
-                <VerifiedBadge className="h-5 w-5 sm:h-6 sm:w-6" />
-                {p.role === "admin" && (
-                  <span className="ml-1 rounded-full bg-[var(--bg-info)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-info)]">Admin</span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">{handleFor(p)}</p>
-
-              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M4 4h16v16H4z" /><path d="M4 8l8 5 8-5" /></svg>
-                  {p.email}
-                </span>
-                {p.telegram && (
-                  <a href={`https://t.me/${p.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 3.5L2.6 10.9c-1.3.5-1.3 1.2-.2 1.5l4.8 1.5 11.2-7.1c.5-.3 1-.1.6.2l-9.1 8.2-.3 5c.5 0 .7-.2 1-.5l2.4-2.3 4.9 3.6c.9.5 1.6.2 1.8-.8L22.9 5c.3-1.3-.5-1.9-1.4-1.5z" /></svg>
-                    {handleFor(p)}
-                  </a>
-                )}
-                <span className="inline-flex items-center gap-1.5">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                  Joined {joined}
-                </span>
-              </div>
-
-              {msg && (
-                <p className={`mt-3 text-xs ${msg.tone === "ok" ? "text-[var(--color-success)]" : "text-destructive"}`}>{msg.text}</p>
-              )}
+            <div className="grid grid-cols-2 divide-x divide-y divide-[var(--background-hover)] border-t border-[var(--background-hover)] sm:grid-cols-4 sm:divide-y-0">
+              <SummaryCell label="Deposited" value={`$${data.stats.totalDeposits.toLocaleString()}`} />
+              <SummaryCell label="Returns" value={`$${data.stats.totalReturns.toLocaleString()}`} tone="success" />
+              <SummaryCell label="Active" value={data.stats.activeInvestments} />
+              <SummaryCell label="Completed" value={data.stats.completedCycles} />
             </div>
-          ) : (
-            <form onSubmit={save} className="mt-4 space-y-3">
-              {msg?.tone === "err" && <div className="rounded-lg border border-destructive/25 bg-[var(--bg-danger)] p-2.5 text-xs text-destructive">{msg.text}</div>}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Display name</label>
-                  <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required minLength={2} maxLength={80} />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Telegram</label>
-                  <input className={inputCls} value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} placeholder="@username" maxLength={64} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-medium text-foreground">
-                    USDT wallet (TRC20) <span className="font-normal text-muted-foreground">— used for withdrawals</span>
-                  </label>
-                  <input className={`${inputCls} font-mono`} value={form.walletAddress} onChange={(e) => setForm({ ...form, walletAddress: e.target.value })} placeholder="T…" maxLength={128} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-medium text-foreground">Email</label>
-                  <input className={`${inputCls} opacity-60`} value={p.email} disabled />
-                  <p className="mt-1 text-[11px] text-muted-foreground">Contact support to change the email on your account.</p>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setEditing(false)} disabled={saving} className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground">
-                  Cancel
-                </button>
-                <button type="submit" disabled={saving} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                  {saving ? "Saving…" : "Save"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+          </Card>
 
-        {/* Stats strip */}
-        <div className="grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-4 sm:divide-y-0">
-          {[
-            { label: "Deposited", value: `$${data.stats.totalDeposits.toLocaleString()}` },
-            { label: "Returns", value: `$${data.stats.totalReturns.toLocaleString()}`, cls: "text-[var(--color-success)]" },
-            { label: "Active", value: data.stats.activeInvestments },
-            { label: "Completed", value: data.stats.completedCycles },
-          ].map((s) => (
-            <div key={s.label} className="px-4 py-3 text-center sm:py-4">
-              <div className={`text-base font-medium tabular-nums sm:text-lg ${s.cls || "text-foreground"}`}>{s.value}</div>
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
+          {/* Personal details */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader
+              title="Personal details"
+              description="Your display name, Telegram handle and payout wallet."
+              action={!editing && <Button variant="secondary" size="sm" onClick={startEdit}>Edit</Button>}
+            />
+            {msg && <div className="mt-4"><StatusNotice msg={msg} /></div>}
 
-      {/* Security */}
-      <Card className="p-4 sm:p-6">
-        <h2 className="mb-4 text-sm font-medium text-foreground sm:text-base">Security</h2>
-        <div className="space-y-3">
-          <div className="rounded-lg bg-secondary/50 p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-medium text-foreground sm:text-sm">Password</div>
-                <div className="text-[10px] text-muted-foreground sm:text-xs">Use at least 6 characters. You'll get an email when it changes.</div>
+            {!editing ? (
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <TextField label="Display name" name="view-name" value={p.name || ""} placeholder="—" readOnly />
+                <TextField label="Telegram" name="view-telegram" value={p.telegram || ""} placeholder="—" readOnly />
+                <TextField label="USDT wallet (TRC20)" name="view-wallet" value={p.walletAddress || ""} placeholder="—" readOnly inputClassName="font-mono" help="Used for withdrawals." className="sm:col-span-2" />
+                <TextField label="Email" name="view-email" value={p.email} disabled help="Contact support to change the email on your account." className="sm:col-span-2" />
               </div>
-              <button
-                onClick={() => {
-                  setPwMsg(null)
-                  setPwOpen((o) => !o)
-                }}
-                className="text-xs font-medium text-foreground hover:underline sm:text-sm"
-              >
-                {pwOpen ? "Cancel" : "Change"}
-              </button>
-            </div>
-            {pwMsg && <p className={`mt-2 text-xs ${pwMsg.tone === "ok" ? "text-[var(--color-success)]" : "text-destructive"}`}>{pwMsg.text}</p>}
-            {pwOpen && (
-              <form onSubmit={changePassword} className="mt-3 grid grid-cols-1 gap-3 border-t border-border/60 pt-3 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Current password</label>
-                  <input className={inputCls} type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required autoComplete="current-password" />
+            ) : (
+              <form onSubmit={save} className="mt-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TextField label="Display name" name="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required minLength={2} maxLength={80} />
+                  <TextField label="Telegram" name="telegram" value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} placeholder="@username" maxLength={64} />
+                  <TextField label="USDT wallet (TRC20)" name="walletAddress" value={form.walletAddress} onChange={(e) => setForm({ ...form, walletAddress: e.target.value })} placeholder="T…" maxLength={128} inputClassName="font-mono" help="Used for withdrawals." className="sm:col-span-2" />
+                  <TextField label="Email" name="email" value={p.email} disabled help="Contact support to change the email on your account." className="sm:col-span-2" />
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">New password</label>
-                  <input className={inputCls} type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required minLength={6} autoComplete="new-password" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground">Confirm new password</label>
-                  <input className={inputCls} type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required minLength={6} autoComplete="new-password" />
-                </div>
-                <div className="flex justify-end sm:col-span-3">
-                  <button type="submit" disabled={pwBusy} className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                    {pwBusy ? "Updating…" : "Update password"}
-                  </button>
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>
+                  <Button type="submit" loading={saving}>Save changes</Button>
                 </div>
               </form>
             )}
-          </div>
+          </Card>
+        </div>
+      )}
 
-          <div className="rounded-lg bg-secondary/50 p-3 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-medium text-foreground sm:text-sm">
-                  Two-step verification
-                  {tfa && (
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tfa.enabled ? "bg-[var(--bg-success)] text-[var(--color-success)]" : "bg-secondary text-muted-foreground"}`}>{tfa.enabled ? "On" : "Off"}</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-muted-foreground sm:text-xs">{tfa?.enabled ? "Signing in needs your password and a code we email you." : "Add a second step: a 6-digit code emailed to you at every sign-in."}</div>
-              </div>
-              {tfa && tfaStep === "idle" && (
-                <button
-                  onClick={() => { setTfaMsg(null); if (tfa.enabled) setTfaStep("disable"); else void startTfa() }}
-                  disabled={tfaBusy}
-                  className="text-xs font-medium text-foreground hover:underline disabled:opacity-50 sm:text-sm"
+      {section === "security" && (
+        <div className="space-y-4 animate-fade-up">
+          {/* Password */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader
+              title="Password"
+              description="Use at least 6 characters. You'll get an email when it changes."
+              action={
+                <Button
+                  variant={pwOpen ? "tertiary" : "secondary"}
+                  size="sm"
+                  onClick={() => {
+                    setPwMsg(null)
+                    setPwOpen((o) => !o)
+                  }}
                 >
-                  {tfaBusy ? "Sending…" : tfa.enabled ? "Turn off" : "Turn on"}
-                </button>
-              )}
-              {tfaStep !== "idle" && (
-                <button onClick={() => { setTfaStep("idle"); setTfaMsg(null); setTfaCode(""); setTfaPassword("") }} className="text-xs font-medium text-muted-foreground hover:text-foreground sm:text-sm">Cancel</button>
-              )}
-            </div>
-            {tfaMsg && <p className={`mt-2 text-xs ${tfaMsg.tone === "ok" ? "text-[var(--color-success)]" : "text-destructive"}`}>{tfaMsg.text}</p>}
-            {tfaStep === "code" && (
-              <form onSubmit={enableTfa} className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs font-medium text-foreground">Enter the 6-digit code</label>
-                  <input className={`${inputCls} font-mono tracking-[0.3em]`} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={tfaCode} onChange={(e) => setTfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="123456" autoFocus />
+                  {pwOpen ? "Cancel" : "Change password"}
+                </Button>
+              }
+            />
+            {pwMsg && <div className="mt-4"><StatusNotice msg={pwMsg} /></div>}
+            {pwOpen && (
+              <form onSubmit={changePassword} className="mt-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TextField label="Current password" name="current-password" type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required autoComplete="current-password" className="sm:col-span-2" />
+                  <TextField label="New password" name="new-password" type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required minLength={6} autoComplete="new-password" />
+                  <TextField label="Confirm new password" name="confirm-password" type="password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required minLength={6} autoComplete="new-password" />
                 </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={startTfa} disabled={tfaBusy} className="rounded-lg border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50">Resend</button>
-                  <button type="submit" disabled={tfaBusy || tfaCode.length !== 6} className="rounded-lg bg-foreground px-4 py-2.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-50">{tfaBusy ? "Checking…" : "Turn on"}</button>
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={() => { setPwMsg(null); setPwOpen(false) }} disabled={pwBusy}>Cancel</Button>
+                  <Button type="submit" loading={pwBusy}>Update password</Button>
+                </div>
+              </form>
+            )}
+          </Card>
+
+          {/* Two-step verification */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader
+              title={
+                <span className="inline-flex items-center gap-2">
+                  Two-step verification
+                  {tfa && <Badge tone={tfa.enabled ? "success" : "neutral"} dot>{tfa.enabled ? "On" : "Off"}</Badge>}
+                </span>
+              }
+              description={tfa?.enabled ? "Signing in needs your password and a code we email you." : "Add a second step: a 6-digit code emailed to you at every sign-in."}
+              action={
+                <>
+                  {tfa && tfaStep === "idle" && (
+                    <Button
+                      variant={tfa.enabled ? "secondary" : "primary"}
+                      size="sm"
+                      loading={tfaBusy}
+                      onClick={() => { setTfaMsg(null); if (tfa.enabled) setTfaStep("disable"); else void startTfa() }}
+                    >
+                      {tfaBusy ? "Sending…" : tfa.enabled ? "Turn off" : "Turn on"}
+                    </Button>
+                  )}
+                  {tfaStep !== "idle" && (
+                    <Button variant="tertiary" size="sm" onClick={() => { setTfaStep("idle"); setTfaMsg(null); setTfaCode(""); setTfaPassword("") }}>Cancel</Button>
+                  )}
+                </>
+              }
+            />
+            {tfaMsg && <div className="mt-4"><StatusNotice msg={tfaMsg} /></div>}
+            {tfaStep === "code" && (
+              <form onSubmit={enableTfa} className="mt-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TextField
+                    label="Enter the 6-digit code"
+                    name="tfa-code"
+                    inputClassName="font-mono tracking-[0.3em]"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={tfaCode}
+                    onChange={(e) => setTfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    autoFocus
+                  />
+                </div>
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="secondary" onClick={startTfa} disabled={tfaBusy}>Resend code</Button>
+                  <Button type="submit" loading={tfaBusy} disabled={tfaCode.length !== 6}>Turn on</Button>
                 </div>
               </form>
             )}
             {tfaStep === "disable" && (
-              <form onSubmit={disableTfa} className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-end">
-                <div className="flex-1">
-                  <label className="mb-1 block text-xs font-medium text-foreground">Confirm with your password</label>
-                  <input className={inputCls} type="password" autoComplete="current-password" value={tfaPassword} onChange={(e) => setTfaPassword(e.target.value)} autoFocus required />
+              <form onSubmit={disableTfa} className="mt-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <TextField label="Confirm with your password" name="tfa-password" type="password" autoComplete="current-password" value={tfaPassword} onChange={(e) => setTfaPassword(e.target.value)} autoFocus required />
                 </div>
-                <button type="submit" disabled={tfaBusy || !tfaPassword} className="rounded-lg bg-destructive px-4 py-2.5 text-xs font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50">{tfaBusy ? "Turning off…" : "Turn off two-step"}</button>
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button type="submit" variant="danger" loading={tfaBusy} disabled={!tfaPassword}>Turn off two-step</Button>
+                </div>
               </form>
             )}
-          </div>
+          </Card>
 
-          <div className="rounded-lg bg-secondary/50 p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-medium text-foreground sm:text-sm">Other devices</div>
-                <div className="text-[10px] text-muted-foreground sm:text-xs">Signed in somewhere you don't recognise? End every session except this one.</div>
+          {/* Sessions */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader title="Signed-in devices" description="Signed in somewhere you don't recognise? End every session except this one." />
+            {revokeMsg && <div className="mt-4"><StatusNotice msg={revokeMsg} /></div>}
+            <div className="mt-5 flex items-center gap-3 rounded-[8px] bg-background p-3">
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
+                <IconDevices className="h-4 w-4" stroke={1.8} />
               </div>
-              <button onClick={signOutOthers} disabled={revoking} className="text-xs font-medium text-foreground hover:underline disabled:opacity-50 sm:text-sm">
-                {revoking ? "Working…" : "Sign out other devices"}
-              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-bold text-foreground">This device</span>
+                  <Badge tone="success" dot>Active</Badge>
+                </div>
+                <div className="text-[12px] leading-[18px] text-less">Your current session stays signed in.</div>
+              </div>
             </div>
-            {revokeMsg && <p className={`mt-2 text-xs ${revokeMsg.tone === "ok" ? "text-[var(--color-success)]" : "text-destructive"}`}>{revokeMsg.text}</p>}
-          </div>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="secondary" onClick={signOutOthers} loading={revoking}>Sign out other devices</Button>
+            </div>
+          </Card>
 
-          <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3 sm:p-4">
-            <div>
-              <div className="text-xs font-medium text-foreground sm:text-sm">Forgot your password?</div>
-              <div className="text-[10px] text-muted-foreground sm:text-xs">We'll email {p.email} a secure reset link.</div>
-            </div>
-            <Link href="/forgot-password" className="text-xs font-medium text-foreground hover:underline sm:text-sm">Send link</Link>
-          </div>
+          {/* Forgot password */}
+          <Card className="p-5 sm:p-6">
+            <CardHeader
+              title="Forgot your password?"
+              description={`We'll email ${p.email} a secure reset link.`}
+              action={<ButtonLink href="/forgot-password" variant="tertiary" size="sm">Send link</ButtonLink>}
+            />
+          </Card>
         </div>
-      </Card>
+      )}
     </div>
   )
 }

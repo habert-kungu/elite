@@ -2,11 +2,12 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google"
 
 import "@workspace/ui/globals.css"
 import { Providers } from "./providers/providers"
-import { cn } from "@workspace/ui/lib/utils";
+import { cn } from "@workspace/ui/lib/utils"
 
 export const metadata = {
-  title: "AlphaReserve",
-  description: "AlphaReserve — grow your crypto with our proven trading pool.",
+  title: "Elite Forex Hub",
+  description: "Elite Forex Hub — professional trading and portfolio management.",
+  icons: { icon: "/favicon.svg?v=4" },
 }
 
 // Deriv's house typeface: IBM Plex Sans for UI, IBM Plex Mono for numerics.
@@ -31,10 +32,10 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", fontSans.variable)}
+      className={cn("antialiased font-sans", fontSans.variable, fontMono.variable)}
     >
       <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml" />
       </head>
       <body>
         <Providers>{children}</Providers>
