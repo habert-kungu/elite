@@ -33,7 +33,7 @@ const FAQS = [
 ]
 
 const SUPPORT_EMAIL = "support@nextlevel.com"
-const TELEGRAM_URL = "https://t.me/khan_bashiri"
+const TELEGRAM_URL = "https://t.me/Patrickfxsignalelite"
 
 const TOPICS = ["Deposits", "Withdrawals", "Account & security", "Plans & returns", "Something else"]
 

@@ -21,7 +21,7 @@ import {
    lib/trading.ts, so the marketing tiers can never drift from the app.
 ------------------------------------------------------------------------- */
 
-const TELEGRAM_URL = "https://t.me/+ujxfTTqxAoE4ODNh"
+const TELEGRAM_URL = "https://t.me/Patrickfxsignalelite"
 
 const NAV_LINKS = [
   { href: "#plans", label: "Plans" },

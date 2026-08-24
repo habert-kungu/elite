@@ -145,7 +145,7 @@ export default function InvestmentsPage() {
       }
 
       const message = `🎯 *New Stake Request*\n\n*Plan:* ${plan.name} (${roi}x ROI)\n*Amount:* ${formatPlanAmount(stake, selectedPlan)}\n*Network:* ${wallet.label}\n*TX Hash:* ${txHash}\n*DB ID:* ${data.investment?.id}\n${notes ? `\n*Notes:* ${notes}` : ""}`
-      const telegramUrl = `https://t.me/khan_bashiri?text=${encodeURIComponent(message)}`
+      const telegramUrl = `https://t.me/Patrickfxsignalelite?text=${encodeURIComponent(message)}`
       window.open(telegramUrl, "_blank")
 
       invalidateCache("/api/user/")

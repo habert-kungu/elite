@@ -103,7 +103,7 @@ const BRAND = {
   green: "#C28B00",
   amber: "#FFAD3A",
 }
-const SUPPORT_TELEGRAM = "https://t.me/khan_bashiri"
+const SUPPORT_TELEGRAM = "https://t.me/Patrickfxsignalelite"
 const FONT = "'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 
 function escape(s: string): string {
