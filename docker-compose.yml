@@ -4,9 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     image: elite-web
+    container_name: ${COMPOSE_PROJECT_NAME:-elite}-web
     # Bound to localhost only — Caddy (below) fronts the public domain over HTTPS.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${WEB_PORT:-3001}:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: file:/data/prod.db
@@ -33,6 +34,9 @@ services:
       # `docker compose up -d` — no image rebuild.
       DEPOSIT_USDT_TRC20_ADDRESS: ${DEPOSIT_USDT_TRC20_ADDRESS:-}
       DEPOSIT_BTC_ADDRESS: ${DEPOSIT_BTC_ADDRESS:-}
+    networks:
+      - default
+      - edge
     volumes:
       - elite-data:/data
     restart: unless-stopped
@@ -55,11 +59,20 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN (e.g. app.example.com) to use the proxy}
+    networks:
+      - default
+      - edge
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     restart: unless-stopped
+
+networks:
+  # Shared with the Caddy that fronts this app. Create once on the host:
+  #   docker network create edge
+  edge:
+    external: true
 
 volumes:
   elite-data:

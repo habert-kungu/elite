@@ -86,6 +86,27 @@ panel if one is offered — it's the biggest factor in staying out of spam.
 - **From a shell** (uses `apps/web/.env`): `cd apps/web && npx tsx scripts/send-test-email.ts you@example.com`
 - **No credentials yet?** `npx tsx scripts/send-test-email.ts --ethereal` sends every template to a throwaway [Ethereal](https://ethereal.email) inbox and prints preview links, so you can check rendering before wiring a real provider.
 
+## Sharing a VPS with the alpha app
+
+If `alpha` is already deployed on this server it owns ports 80/443, so **do not**
+start this app's proxy. Run this app on its own localhost port and let alpha's
+Caddy front it:
+
+```bash
+# here (elite)
+echo 'WEB_PORT=3001' >> .env
+docker compose up -d --build        # note: no --profile proxy
+
+# in the alpha checkout
+echo 'ELITE_DOMAIN=elitequest.net' >> .env
+docker compose --profile proxy up -d
+```
+
+Alpha's Caddy reaches this app by container name (`elite-web:3000`) over the
+shared `edge` network — create it once with `docker network create edge` if it
+does not exist. Give this app its **own** `JWT_SECRET`: sharing one would make a
+session issued by either app valid on the other.
+
 ## Updating / redeploying
 
 ```bash
@@ -136,8 +157,8 @@ sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw en
 ### 3. Get the code and set secrets
 
 ```bash
-git clone https://github.com/habert-kungu/tradefixx-clone.git
-cd tradefixx-clone
+git clone https://github.com/habert-kungu/elite.git
+cd elite
 
 # Create a .env next to docker-compose.yml
 cat > .env <<EOF
@@ -162,7 +183,10 @@ EOF
 
 ### 4. Launch with the proxy
 
+Create the shared Docker network once, then build and start:
+
 ```bash
+docker network create edge
 docker compose --profile proxy up -d --build
 ```
 
