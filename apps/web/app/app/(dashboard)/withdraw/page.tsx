@@ -42,7 +42,7 @@ export default function WithdrawPage() {
 
   const handleSubmit = () => {
     const message = `💰 *Withdrawal Request*\n\n*Amount:* $${withdrawAmount}\n*Fee (16.5%):* $${fee.toFixed(2)}\n*Net:* $${receiveAmount.toFixed(2)}\n*Network:* ${network}\n*Address:* ${address}`
-    const telegramUrl = `https://t.me/Patrickfxsignalelite?text=${encodeURIComponent(message)}`
+    const telegramUrl = `https://t.me/Patrick_vile?text=${encodeURIComponent(message)}`
     window.open(telegramUrl, "_blank")
     setShowConfirm(false)
     setAmount("")

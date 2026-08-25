@@ -212,7 +212,7 @@ export default function RiskPage() {
               Every cent in this pool is treated as if it belongs to us personally. Our risk management system was built over years of live trading.
             </p>
           </div>
-          <a href="https://t.me/Patrickfxsignalelite" target="_blank" rel="noreferrer" className={buttonClass({ className: "flex-shrink-0" })}>
+          <a href="https://t.me/Patrick_vile" target="_blank" rel="noreferrer" className={buttonClass({ className: "flex-shrink-0" })}>
             <IconBrandTelegram className="h-4 w-4" stroke={1.8} />
             Message on Telegram
           </a>

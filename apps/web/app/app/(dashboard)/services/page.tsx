@@ -89,7 +89,7 @@ export default function ServicesPage() {
               </ul>
 
               <a
-                href="https://t.me/Patrickfxsignalelite"
+                href="https://t.me/Patrick_vile"
                 target="_blank"
                 className={buttonClass({ variant: service.popular ? "primary" : "secondary", block: true, className: "mt-6" })}
               >
