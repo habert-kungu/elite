@@ -87,21 +87,27 @@ function stripHtml(html: string): string {
 
 // ---------------------------------------------------------------------------
 // Design system
+//
+// Deliberately plain. A transactional email should read like a note from the
+// desk, not a landing page: one accent colour, hairline rules instead of
+// nested panels, and a text wordmark that renders even when images are
+// blocked — which, by default, they are in most inboxes.
 // ---------------------------------------------------------------------------
 
 const BRAND = {
-  // Deriv Design System (zeroheight.com/36313d3c8): Coral red brand, Dark gray
-  // ink, system light greys, light-theme status colours.
-  red: "#FDE68A",
+  // Elite palette, tuned for white paper: the pale brand yellow only ever
+  // carries dark text on top of it, never sits as text on white.
+  yellow: "#FDE68A",
   onBrand: "#0E0E0E",
-  ink: "#0E0E0E",
-  text: "#333333",
-  muted: "#999999",
-  line: "#E6E9E9",
-  panel: "#F2F3F4",
-  bg: "#F2F3F4",
-  green: "#C28B00",
-  amber: "#FFAD3A",
+  accent: "#E0A800",
+  ink: "#111111",
+  text: "#3C3C3C",
+  muted: "#8A8A8A",
+  line: "#E8E8EA",
+  panel: "#FAFAFA",
+  bg: "#F6F6F7",
+  green: "#8A6600",
+  danger: "#C62B37",
 }
 const SUPPORT_TELEGRAM = "https://t.me/Patrickfxsignalelite"
 const FONT = "'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
@@ -115,68 +121,80 @@ export function money(n: number, digits = 0): string {
 }
 
 function greeting(name?: string | null): string {
-  return `<p style="margin:0 0 14px">${name ? `Hi ${escape(name)},` : "Hello,"}</p>`
+  return `<p style="margin:0 0 16px">${name ? `Hi ${escape(name)},` : "Hello,"}</p>`
 }
 
 function p(html: string): string {
-  return `<p style="margin:0 0 14px">${html}</p>`
+  return `<p style="margin:0 0 16px">${html}</p>`
 }
 
-/** Label/value rows in a soft panel — for amounts, references, credentials. */
+/** Label/value rows separated by hairlines — no box, no fill. */
 function details(rows: [string, string][]): string {
   const tr = rows
     .map(
-      ([k, v], i) => `<tr>
-  <td style="padding:10px 16px;font-size:13px;color:${BRAND.muted};border-top:${i ? `1px solid ${BRAND.line}` : "0"};white-space:nowrap">${escape(k)}</td>
-  <td align="right" style="padding:10px 16px;font-size:14px;font-weight:600;color:${BRAND.ink};border-top:${i ? `1px solid ${BRAND.line}` : "0"};word-break:break-word">${v}</td>
+      ([k, v]) => `<tr>
+  <td style="padding:11px 0;font-size:13px;line-height:1.45;color:${BRAND.muted};border-top:1px solid ${BRAND.line};white-space:nowrap;vertical-align:top">${escape(k)}</td>
+  <td align="right" style="padding:11px 0 11px 24px;font-size:14px;line-height:1.45;color:${BRAND.ink};border-top:1px solid ${BRAND.line};word-break:break-word;vertical-align:top">${v}</td>
 </tr>`
     )
     .join("")
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:18px 0;background:${BRAND.panel};border:1px solid ${BRAND.line};border-radius:10px;border-collapse:separate;overflow:hidden">${tr}</table>`
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 6px;border-collapse:collapse">${tr}
+<tr><td colspan="2" style="border-top:1px solid ${BRAND.line};font-size:0;line-height:0">&#8203;</td></tr></table>`
 }
 
-/** Monospace credential/reference block. */
+/** Monospace credential/reference value. */
 function code(v: string): string {
   return `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px">${escape(v)}</span>`
 }
 
+/**
+ * A closing aside. Informational notes are just quiet text — boxing every
+ * sentence is what made these feel busy. Only warnings get a tint.
+ */
 function note(html: string, tone: "info" | "warn" = "info"): string {
-  const color = tone === "warn" ? BRAND.amber : BRAND.muted
-  const bg = tone === "warn" ? "#FFF4E0" : BRAND.panel
-  return `<p style="margin:18px 0 0;padding:12px 14px;background:${bg};border-left:3px solid ${color};border-radius:6px;font-size:13px;line-height:1.55;color:${BRAND.text}">${html}</p>`
+  if (tone === "warn") {
+    return `<p style="margin:22px 0 0;padding:12px 14px;background:#FFF7E8;border-radius:8px;font-size:13px;line-height:1.6;color:${BRAND.text}">${html}</p>`
+  }
+  return `<p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:${BRAND.muted}">${html}</p>`
 }
 
-function button(href: string, label: string): string {
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:24px 0 6px"><tr><td style="border-radius:4px;background:${BRAND.red}">
-  <a href="${href}" style="display:inline-block;padding:12px 22px;font-family:${FONT};font-size:14px;font-weight:600;color:${BRAND.onBrand};text-decoration:none;border-radius:4px">${escape(label)}</a>
-</td></tr></table>
-<p style="margin:0 0 8px;font-size:12px;color:${BRAND.muted};word-break:break-all">If the button doesn't work, copy this link: <a href="${href}" style="color:${BRAND.muted}">${href}</a></p>`
+/**
+ * Primary action. `fallback` adds the copy-paste URL line — worth the clutter
+ * for one-time links that are useless if the button doesn't render, and not
+ * worth it for links to pages the reader can reach anyway.
+ */
+function button(href: string, label: string, opts: { fallback?: boolean } = {}): string {
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:26px 0 0"><tr><td style="border-radius:6px;background:${BRAND.yellow}">
+  <a href="${href}" style="display:inline-block;padding:12px 20px;font-family:${FONT};font-size:14px;font-weight:600;color:${BRAND.onBrand};text-decoration:none">${escape(label)}</a>
+</td></tr></table>${
+    opts.fallback
+      ? `<p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:${BRAND.muted};word-break:break-all">Or paste this into your browser:<br/><a href="${href}" style="color:${BRAND.muted}">${href}</a></p>`
+      : ""
+  }`
 }
 
-/** Shared shell: hidden preheader, dark header band, white card, muted footer. */
+/** Shared shell: hidden preheader, wordmark, one white card, quiet footer. */
 function layout(title: string, body: string, preheader?: string): string {
   const site = appUrl()
   const host = site.replace(/^https?:\/\//, "")
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(title)}</title></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title>
+<style>@media only screen and (max-width:600px){.card{padding:26px 22px 24px!important}h1.subject{font-size:19px!important}}</style>
+</head>
 <body style="margin:0;padding:0;background:${BRAND.bg};font-family:${FONT};color:${BRAND.text};-webkit-font-smoothing:antialiased">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escape(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>` : ""}
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${BRAND.bg}"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${BRAND.bg}"><tr><td align="center" style="padding:40px 16px 44px">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px">
-    <tr><td style="background:${BRAND.ink};border-radius:16px 16px 0 0;line-height:0;font-size:0">
-      <!-- Image banner. The dark cell, the alt text and the wordmark fallback
-           row below keep the header branded when images are blocked. -->
-      <a href="${site}" style="display:block;line-height:0">
-        <img src="${appUrl("/images/email-banner.png")}" width="560" height="140" alt="${escape(APP_NAME)}" style="display:block;width:100%;max-width:560px;height:auto;border:0;border-radius:16px 16px 0 0" />
-      </a>
+    <tr><td style="padding:0 2px 14px">
+      <a href="${site}" style="font-family:${FONT};font-size:19px;font-weight:600;letter-spacing:-0.015em;color:${BRAND.ink};text-decoration:none">elite<span style="color:${BRAND.accent}">.</span></a>
     </td></tr>
-    <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-top:0;border-radius:0 0 16px 16px;padding:32px 32px 28px">
-      <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:700;color:${BRAND.ink}">${escape(title)}</h1>
-      <div style="font-size:15px;line-height:1.65;color:${BRAND.text}">${body}</div>
+    <tr><td class="card" style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:12px;padding:36px 36px 32px">
+      <h1 class="subject" style="margin:0 0 14px;font-size:20px;line-height:1.35;font-weight:600;letter-spacing:-0.01em;color:${BRAND.ink}">${escape(title)}</h1>
+      <div style="font-size:15px;line-height:1.62;color:${BRAND.text}">${body}</div>
     </td></tr>
-    <tr><td style="padding:22px 12px 0;text-align:center;font-size:12px;line-height:1.7;color:${BRAND.muted}">
-      <a href="${site}" style="color:${BRAND.muted};text-decoration:none;font-weight:600">${escape(host)}</a>
-      &nbsp;·&nbsp; <a href="${SUPPORT_TELEGRAM}" style="color:${BRAND.muted}">Support on Telegram</a><br/>
+    <tr><td style="padding:20px 2px 0;font-size:12px;line-height:1.7;color:${BRAND.muted}">
+      <a href="${site}" style="color:${BRAND.muted};text-decoration:none">${escape(host)}</a>
+      &nbsp;·&nbsp;<a href="${SUPPORT_TELEGRAM}" style="color:${BRAND.muted};text-decoration:none">Telegram</a><br/>
       You're receiving this because you have an ${APP_NAME} account. Trading involves risk — never invest more than you can afford to lose.
     </td></tr>
   </table>
@@ -217,7 +235,7 @@ export const buildWelcome = (to: string, name?: string | null): MailMessage => (
   html: layout(
     "Welcome aboard",
     `${greeting(name)}
-${p(`Your ${APP_NAME} account is ready. Choose a plan, and our desk handles the trading — you track every cycle live from your dashboard.`)}
+${p(`Your ${APP_NAME} account is ready. Choose a plan, and our desk handles the trading — you track every cycle live from your dashboard. Plans are funded in USDT, except Premium 12 days which takes BTC.`)}
 ${details([
   ...SELECTABLE_PLANS.map(
     (plan) =>
@@ -226,7 +244,7 @@ ${details([
         `Invest ${formatPlanAmount(plan.tiers[0]!.invest, plan.key)} → earn ${formatPlanAmount(plan.tiers[0]!.earn, plan.key)} · ${planDuration(plan.key)}`,
       ] as [string, string]
   ),
-  ["Minimum deposit", `${formatPlanAmount(MIN_DEPOSIT_USD, "daily")} in USDT (TRC20) — the Premium plan is funded in BTC`],
+  ["Minimum deposit", `${formatPlanAmount(MIN_DEPOSIT_USD, "daily")} in USDT (TRC20)`],
 ])}
 ${button(appUrl("/app/investments"), "Make your first deposit")}
 ${note("Questions before you start? Reply to this email or message the desk on Telegram — a real person answers.")}`,
@@ -247,7 +265,7 @@ ${details([
   ["Link valid for", "1 hour"],
   ["Can be used", "once"],
 ])}
-${button(link, "Choose a new password")}
+${button(link, "Choose a new password", { fallback: true })}
 ${note("Didn't request this? You can ignore this email — your password stays the same and nobody else can use this link.")}`,
       "Use this link within 1 hour to choose a new password."
     ),
@@ -279,7 +297,7 @@ ${details([
   ["Email", code(to)],
   ["Link valid for", "72 hours"],
 ])}
-${button(link, "Set my password")}
+${button(link, "Set my password", { fallback: true })}
 ${note("Keep this email private: anyone with the link can set the password until it's used or expires.")}`,
     `Choose your password to activate your ${APP_NAME} account.`
   ),
@@ -297,7 +315,7 @@ ${details([
   ["Link valid for", "24 hours"],
   ["Can be used", "once"],
 ])}
-${button(link, "Choose a new password")}
+${button(link, "Choose a new password", { fallback: true })}
 ${note("If you weren't expecting this, contact support before using the link.", "warn")}`,
     "An administrator reset your password. Choose a new one with this link."
   ),
@@ -312,7 +330,7 @@ export const buildLoginCode = (to: string, code: string, opts: { purpose: "login
       enabling ? "Confirm two-step verification" : "Your sign-in code",
       `${greeting(opts.name)}
 ${p(enabling ? "Enter this code to turn on two-step verification for your account." : `Someone — hopefully you — is signing in to your ${APP_NAME} account. Enter this code to continue.`)}
-<p style="margin:18px 0;text-align:center"><span style="display:inline-block;padding:14px 26px;background:${BRAND.panel};border:1px solid ${BRAND.line};border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:30px;font-weight:700;letter-spacing:0.35em;color:${BRAND.ink}">${code}</span></p>
+<p style="margin:24px 0 4px;text-align:center"><span style="display:inline-block;padding:16px 24px 16px 30px;background:${BRAND.panel};border-radius:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:30px;line-height:1;font-weight:600;letter-spacing:0.3em;color:${BRAND.ink}">${code}</span></p>
 ${details([
   ["Valid for", "10 minutes"],
   ["Can be used", "once"],
@@ -394,7 +412,7 @@ ${p(`We weren't able to match your <strong>${plan}</strong> deposit of <strong>$
 ${details([
   ["Amount", amount],
   ["Plan", plan],
-  ["Status", `<span style="color:${BRAND.red}">Not confirmed</span>`],
+  ["Status", `<span style="color:${BRAND.danger}">Not confirmed</span>`],
 ])}
 ${p("If you believe this is a mistake, reply with your transaction hash and network and we'll take another look.")}
 ${button(appUrl("/app/support"), "Contact support")}`,
@@ -551,5 +569,3 @@ export async function verifyMailTransport(): Promise<{ ok: boolean; error?: stri
     return { ok: false, error: error instanceof Error ? error.message : "verify failed" }
   }
 }
-
-/** Turns admin-written plain text into safe, paragraphed HTML (blank line = new paragraph). */
