@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminUser } from '@/lib/auth'
 import prisma from '@/lib/db'
+import { settleMaturedCycles } from '@/lib/settle'
 import { effectiveCycle } from '@/lib/trading'
 
 export async function GET(request: NextRequest) {
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    // Settle first so a plan that ran its term reads "completed", not "active".
+    await settleMaturedCycles()
+
     const status = searchParams.get('status')
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10) || 10))

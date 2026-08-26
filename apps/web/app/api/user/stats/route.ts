@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/db'
 import { withdrawableBalance } from '@/lib/balance'
+import { settleMaturedCycles } from '@/lib/settle'
 import { effectiveCycle, planCurrency, planFor } from '@/lib/trading'
 
 export async function GET(request: NextRequest) {
@@ -17,6 +18,10 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = payload.userId
+
+    // Close out anything that finished its term first, so this response shows
+    // the payout as withdrawable rather than as a cycle stuck at 100%.
+    await settleMaturedCycles(userId)
 
     const investments = await prisma.investment.findMany({
       where: { userId },
@@ -69,8 +74,15 @@ export async function GET(request: NextRequest) {
 
     const pendingReturns = activeCycles.filter((c: any) => c.currency !== 'BTC').reduce((sum: number, c: any) => sum + (c.targetValue - c.currentValue), 0)
 
+    // An open cycle is worth its live value, not just the principal parked in
+    // it — otherwise total assets reads as the deposit while the dashboard
+    // shows the position well above it.
+    const liveValue = (i: any) => {
+      const cycle = i.cycles.find((c: any) => c.status === 'active')
+      return cycle ? effectiveCycle(cycle, i.pool).currentValue : i.amount
+    }
     const totalAssets = usdCompleted.reduce((sum: number, i: any) => sum + i.amount * i.roi, 0) +
-      usdActive.reduce((sum: number, i: any) => sum + i.amount, 0)
+      usdActive.reduce((sum: number, i: any) => sum + liveValue(i), 0)
 
     // Withdrawable = completed returns less anything already requested or paid.
     const balance = await withdrawableBalance(userId)

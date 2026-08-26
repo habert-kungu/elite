@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAdminUser, createUser, generateTempPassword, isStrongEnoughPassword, createPasswordResetToken } from "@/lib/auth"
 import { accountCreatedByAdminEmail, appUrl } from "@/lib/mail"
 import prisma from "@/lib/db"
+import { settleMaturedCycles } from "@/lib/settle"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
     const q = (searchParams.get("q") || "").trim().toLowerCase()
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1)
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "10", 10) || 10))
+
+    // Matured cycles are settled first so the returns column matches what the
+    // investor sees on their own dashboard.
+    await settleMaturedCycles()
 
     const roleParam = searchParams.get("role")
     const role = roleParam === "admin" || roleParam === "user" ? roleParam : null

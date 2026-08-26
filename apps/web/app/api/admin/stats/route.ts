@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminUser } from "@/lib/auth"
 import prisma from "@/lib/db"
+import { settleMaturedCycles } from "@/lib/settle"
 
 export async function GET(request: NextRequest) {
   try {
     if (!(await getAdminUser(request))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+
+    // Matured cycles are settled first so paid-out and completed-cycle counts
+    // match what investors see on their own dashboards.
+    await settleMaturedCycles()
 
     const [totalUsers, pendingDeposits, activeInvestments, completedCycles, deposited, paidOut, recent] =
       await Promise.all([

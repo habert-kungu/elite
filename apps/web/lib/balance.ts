@@ -1,10 +1,14 @@
 import prisma from "./db"
+import { settleMaturedCycles } from "./settle"
 
 /**
  * Withdrawable funds are **completed returns only** — money from cycles that
  * actually finished — less anything already requested or paid out. Principal
- * still working inside an active cycle is not withdrawable, and neither is a
- * return whose cycle the admin hasn't completed yet.
+ * still working inside an active cycle is not withdrawable.
+ *
+ * A cycle that has run its full term counts as finished: the balance settles
+ * matured cycles before it counts, so a client never sees $0 available against
+ * a plan the dashboard shows at 100%.
  */
 
 export const MIN_WITHDRAWAL_USD = 50
@@ -26,6 +30,8 @@ function round(n: number): number {
 }
 
 export async function withdrawableBalance(userId: string): Promise<WithdrawableBalance> {
+  await settleMaturedCycles(userId)
+
   const [returned, taken] = await Promise.all([
     prisma.transaction.aggregate({
       _sum: { amount: true },

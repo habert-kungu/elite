@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminUser } from "@/lib/auth"
 import prisma from "@/lib/db"
+import { settleMaturedCycles } from "@/lib/settle"
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    // Settle first so a matured cycle's return shows up in the ledger.
+    await settleMaturedCycles()
+
     const type = searchParams.get("type")
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1)
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "12", 10) || 12))

@@ -3,6 +3,7 @@ import { getAdminUser, hashPassword, isStrongEnoughPassword, createPasswordReset
 import { appUrl } from "@/lib/mail"
 import { passwordResetByAdminEmail } from "@/lib/mail"
 import prisma from "@/lib/db"
+import { settleMaturedCycles } from "@/lib/settle"
 import { effectiveCycle } from "@/lib/trading"
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -17,6 +18,10 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       select: { id: true, email: true, name: true, telegram: true, walletAddress: true, role: true, createdAt: true, twoFactorEnabled: true },
     })
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+
+    // Settle this investor's matured cycles so the admin sees the same
+    // returns and withdrawable figure the client does.
+    await settleMaturedCycles(id)
 
     const [investments, transactions] = await Promise.all([
       prisma.investment.findMany({

@@ -329,7 +329,7 @@ export default function DashboardPage() {
           }
         />
         <SummaryCell label="Pending returns" value={`$${money(stats?.pendingReturns || 0)}`} hint="Paid at cycle end" />
-        <SummaryCell label="Total profit" value={`${(stats?.totalProfit || 0) >= 0 ? "+" : "-"}$${money(Math.abs(stats?.totalProfit || 0))}`} tone={(stats?.totalProfit || 0) >= 0 ? "success" : "danger"} hint="All time" />
+        <SummaryCell label="Total profit" value={`${(stats?.totalProfit || 0) >= 0 ? "+" : "-"}$${money(Math.abs(stats?.totalProfit || 0))}`} tone={(stats?.totalProfit || 0) >= 0 ? "success" : "danger"} hint="Realized, closed cycles" />
       </Card>
 
       {/* Trading panel: open cycle + live chart */}
