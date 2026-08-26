@@ -379,8 +379,11 @@
   /* Compact table (tables use S/P2 text, 1px row separators) */
   .table-linear { @apply w-full text-[14px]; }
   .table-linear th {
-    @apply text-left text-[12px] font-bold py-2.5 px-4 border-b border-border; color: var(--foreground-tertiary);
+    @apply text-[12px] font-bold py-2.5 px-4 border-b border-border; color: var(--foreground-tertiary);
   }
+  /* Left is only the default: :where() keeps specificity at zero so a
+     `text-right` utility on a numeric header still wins over this recipe. */
+  :where(.table-linear th) { text-align: left; }
   .table-linear td { @apply py-3 px-4 border-b border-border; }
   .table-linear tr:hover td { background-color: var(--background-hover); }
   .table-linear tr:last-child td { @apply border-b-0; }
