@@ -26,7 +26,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<SignInResult>
   verifyTwoFactor: (code: string) => Promise<void>
   resendTwoFactor: () => Promise<SignInResult>
-  signUp: (data: { name: string; email: string; password: string; telegram?: string }) => Promise<void>
+  /** Always resolves with `requiresTwoFactor: true` — new accounts verify their email first. */
+  signUp: (data: { name: string; email: string; password: string; telegram?: string; website?: string }) => Promise<SignInResult>
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
   setUser: (user: User | null) => void
@@ -141,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { requiresTwoFactor: true, email: data.email, emailSent: data.emailSent }
   }
 
-  const signUp = async (payload: { name: string; email: string; password: string; telegram?: string }) => {
+  const signUp = async (payload: { name: string; email: string; password: string; telegram?: string; website?: string }): Promise<SignInResult> => {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -150,8 +151,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || "Registration failed")
     clearCache()
-    setUser(data.user)
-    router.push("/app")
+    // The account exists but has no session until the emailed code is verified.
+    return { requiresTwoFactor: true, email: data.email, emailSent: data.emailSent }
   }
 
   const signOut = async () => {

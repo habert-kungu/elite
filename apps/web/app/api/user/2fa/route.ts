@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getSessionUser, createTwoFactorCode, verifyTwoFactorCode, twoFactorCooldown, verifyPassword, revokeAllSessions, setSessionCookie } from "@/lib/auth"
+import { getSessionUser, createTwoFactorCode, verifyTwoFactorCode, twoFactorCooldown } from "@/lib/auth"
 import { loginCodeEmail, twoFactorChangedEmail } from "@/lib/mail"
 import prisma from "@/lib/db"
 
@@ -7,14 +7,15 @@ import prisma from "@/lib/db"
 export async function GET(request: NextRequest) {
   const session = await getSessionUser(request)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const u = await prisma.user.findUnique({ where: { id: session.id }, select: { twoFactorEnabled: true } })
-  return NextResponse.json({ enabled: !!u?.twoFactorEnabled, email: session.email })
+  // Two-step is required for every account; it is reported as always on.
+  return NextResponse.json({ enabled: true, required: true, email: session.email })
 }
 
 /**
- * POST { action: "start" }            → emails a confirmation code
- * POST { action: "enable", code }     → turns two-step on
- * POST { action: "disable", password }→ turns it off (requires current password)
+ * POST { action: "start" }        → emails a confirmation code
+ * POST { action: "enable", code } → confirms two-step on this account
+ *
+ * There is no "disable": two-step verification is mandatory platform-wide.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -42,15 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (body.action === "disable") {
-      const u = await prisma.user.findUnique({ where: { id: session.id }, select: { password: true } })
-      if (!u?.password || !body.password || !(await verifyPassword(String(body.password), u.password))) {
-        return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 })
-      }
-      await prisma.user.update({ where: { id: session.id }, data: { twoFactorEnabled: false } })
-      // Sign out other devices as a precaution; keep this one.
-      const fresh = await revokeAllSessions(session.id)
-      void twoFactorChangedEmail(session.email, false, session.name)
-      return setSessionCookie(NextResponse.json({ success: true, enabled: false }), fresh)
+      return NextResponse.json({ error: "Two-step verification is required and can't be turned off." }, { status: 403 })
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })

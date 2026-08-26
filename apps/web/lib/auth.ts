@@ -1,32 +1,19 @@
 import { SignJWT, jwtVerify } from "jose"
 import bcrypt from "bcryptjs"
 import prisma from "./db"
+import {
+  SESSION_COOKIE,
+  SESSION_IDLE_MAX_AGE,
+  createToken,
+  getJwtSecret,
+  sessionCookieOptions,
+  sessionExpired,
+  verifyToken,
+  type JWTPayload,
+} from "./session-token"
 
-// Resolve the signing secret lazily so a missing value fails closed in
-// production (never silently falling back to a known, forgeable default).
-function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET
-  if (secret && secret.length >= 16) {
-    return new TextEncoder().encode(secret)
-  }
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "JWT_SECRET is not set (or too short). Refusing to sign/verify tokens with an insecure default."
-    )
-  }
-  // Development-only fallback. Clearly not for production use.
-  return new TextEncoder().encode("dev-only-insecure-secret-do-not-use-in-prod")
-}
-
-export interface JWTPayload {
-  userId: string
-  email: string
-  role: string
-  name?: string
-  /** User.tokenVersion at issue time; a mismatch means the session was revoked. */
-  tv?: number
-  [key: string]: unknown
-}
+export { SESSION_COOKIE, SESSION_IDLE_MAX_AGE, createToken, verifyToken, sessionExpired }
+export type { JWTPayload }
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10)
@@ -34,23 +21,6 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash)
-}
-
-export async function createToken(payload: JWTPayload): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(getJwtSecret())
-}
-
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getJwtSecret())
-    return payload as JWTPayload
-  } catch {
-    return null
-  }
 }
 
 export async function createUser(
@@ -104,51 +74,45 @@ export interface SessionUser {
   tokenVersion: number
 }
 
-export const SESSION_COOKIE = "token"
-export const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
-
 /** Builds the JWT claims for a user, stamping the current tokenVersion. */
-export function sessionClaims(user: { id: string; email: string; role: string; name?: string | null; tokenVersion: number }): JWTPayload {
-  return { userId: user.id, email: user.email, role: user.role, name: user.name || undefined, tv: user.tokenVersion }
+export function sessionClaims(
+  user: { id: string; email: string; role: string; name?: string | null; tokenVersion: number },
+  sessionStart: number = Math.floor(Date.now() / 1000)
+): JWTPayload {
+  return { userId: user.id, email: user.email, role: user.role, name: user.name || undefined, tv: user.tokenVersion, sat: sessionStart }
 }
 
-/** Issues a session cookie on the given response. */
+/**
+ * Issues a session cookie. Sessions are deliberately short: 30 minutes of
+ * inactivity (the middleware slides that window on each request) and 8 hours
+ * of total life, after which the user signs in again.
+ */
 export async function setSessionCookie(
   response: NextResponse,
   user: { id: string; email: string; role: string; name?: string | null; tokenVersion: number }
 ) {
-  response.cookies.set(SESSION_COOKIE, await createToken(sessionClaims(user)), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_MAX_AGE,
-    path: "/",
-  })
+  response.cookies.set(SESSION_COOKIE, await createToken(sessionClaims(user)), sessionCookieOptions(SESSION_IDLE_MAX_AGE))
   return response
 }
 
 export function clearSessionCookie(response: NextResponse) {
-  response.cookies.set(SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  })
+  response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(0))
   return response
 }
 
 /**
  * Resolves the signed-in user from the request cookie and re-reads them from
  * the database, so a role change, a deleted account, or a session revocation
- * (tokenVersion bump) takes effect immediately rather than whenever the 7-day
- * JWT happens to expire.
+ * (tokenVersion bump) takes effect immediately rather than whenever the JWT
+ * happens to expire.
  */
 export async function getSessionUser(request: NextRequest): Promise<SessionUser | null> {
   const token = request.cookies.get(SESSION_COOKIE)?.value
   if (!token) return null
   const payload = await verifyToken(token)
   if (!payload?.userId) return null
+  // Past its absolute cap (or minted before sliding sessions existed).
+  if (sessionExpired(payload)) return null
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
     select: { id: true, email: true, name: true, role: true, telegram: true, tokenVersion: true },

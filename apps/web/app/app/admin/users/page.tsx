@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Button, ButtonLink, Card, EmptyState, Notice, Select, TextField } from "@/components/ui"
+import { Button, ButtonLink, Card, EmptyState, Notice, Segmented, Select, TextField } from "@/components/ui"
 import { PageHeader } from "@/app/components/page-header"
 import { Pagination } from "@/components/data-table"
 import { useAuth } from "@/app/providers/auth-provider"
@@ -29,8 +29,10 @@ interface UsersResponse {
   total: number
   page: number
   pageCount: number
-  totals: { users: number; deposits: number; returns: number }
+  totals: { users: number; admins: number; deposits: number; returns: number }
 }
+
+type RoleFilter = "all" | "admin" | "user"
 
 function useDebounced<T>(value: T, ms = 300) {
   const [v, setV] = React.useState(value)
@@ -45,13 +47,15 @@ export default function UsersPage() {
   const { user: me } = useAuth()
   const [search, setSearch] = React.useState("")
   const [page, setPage] = React.useState(1)
+  const [roleFilter, setRoleFilter] = React.useState<RoleFilter>("all")
   const q = useDebounced(search.trim())
 
-  const key = `/api/admin/users?page=${page}&pageSize=${PAGE_SIZE}&q=${encodeURIComponent(q)}`
+  const key = `/api/admin/users?page=${page}&pageSize=${PAGE_SIZE}&q=${encodeURIComponent(q)}${roleFilter === "all" ? "" : `&role=${roleFilter}`}`
   const { data, loading, refreshing, refresh } = useCachedFetch<UsersResponse>(key, { ttl: 60_000 })
 
   const [showAdd, setShowAdd] = React.useState(false)
   const [removing, setRemoving] = React.useState<AdminUser | null>(null)
+  const [revoking, setRevoking] = React.useState<AdminUser | null>(null)
   const [resetting, setResetting] = React.useState<AdminUser | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
@@ -157,17 +161,30 @@ export default function UsersPage() {
     }
   }
 
-  const toggleRole = async (u: AdminUser) => {
-    const role = u.role === "admin" ? "user" : "admin"
+  const setRole = async (u: AdminUser, role: "admin" | "user") => {
     setBusy(true)
     setError("")
     try {
       const res = await fetch(`/api/admin/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }) })
       const json = await res.json()
-      if (!res.ok) setError(json.error || "Failed to update role")
-      else await afterMutation()
+      if (!res.ok) {
+        setError(json.error || "Failed to update role")
+        return false
+      }
+      await afterMutation()
+      return true
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Revoking admin signs the account out everywhere, so it is confirmed first. */
+  const handleRevokeAdmin = async () => {
+    if (!revoking) return
+    const name = revoking.name || revoking.email
+    if (await setRole(revoking, "user")) {
+      setRevoking(null)
+      setNotice(<><strong className="font-bold text-foreground">{name}</strong> is no longer an admin. Their sessions were signed out.</>)
     }
   }
 
@@ -177,7 +194,9 @@ export default function UsersPage() {
       { label: "View investor", href: `/app/admin/users/${u.id}` },
       { label: "Email", href: `/app/admin/communications?users=${u.id}` },
       { label: "Reset password", onClick: () => { setError(""); setResetting(u) } },
-      { label: u.role === "admin" ? "Make regular user" : "Make admin", onClick: () => toggleRole(u), disabled: busy || isMe, title: isMe ? "You can't change your own role" : undefined },
+      u.role === "admin"
+        ? { label: "Revoke admin", onClick: () => { setError(""); setRevoking(u) }, danger: true, disabled: busy || isMe, title: isMe ? "You can't change your own role" : undefined }
+        : { label: "Make admin", onClick: () => setRole(u, "admin"), disabled: busy || isMe, title: isMe ? "You can't change your own role" : undefined },
       { label: "Remove", onClick: () => { setError(""); setRemoving(u) }, danger: true, disabled: busy || isMe, title: isMe ? "You can't remove your own account" : undefined },
     ]
   }
@@ -188,7 +207,13 @@ export default function UsersPage() {
   const end = Math.min(data.page * PAGE_SIZE, data.total)
   const allOnPage = data.users.length > 0 && data.users.every((u) => checked.has(u.id))
   const checkbox = "h-4 w-4 flex-shrink-0 accent-[var(--primary)]"
-  const emptyTitle = q ? `No users match “${q}”` : "No users yet"
+  const emptyTitle = q
+    ? `No users match “${q}”`
+    : roleFilter === "admin"
+      ? "No admins yet"
+      : roleFilter === "user"
+        ? "No investors yet"
+        : "No users yet"
   const empty = <EmptyState icon={<IconUsers className="h-5 w-5" stroke={1.8} />} title={emptyTitle} description={q ? "Try a different name, email or Telegram handle." : "Add your first user to get started."} />
   const errorNotice = (
     <Notice tone="danger" icon={<IconAlertTriangle className="h-4 w-4" stroke={1.8} />}>
@@ -227,11 +252,12 @@ export default function UsersPage() {
           </div>
         </Notice>
       )}
-      {error && !showAdd && !removing && !resetting && errorNotice}
+      {error && !showAdd && !removing && !resetting && !revoking && errorNotice}
 
       <StatGrid
         items={[
           { label: "Total users", value: data.totals.users },
+          { label: "Admins", value: data.totals.admins },
           { label: "Total deposits", value: `$${data.totals.deposits.toLocaleString()}` },
           { label: "Total returns", value: `$${data.totals.returns.toLocaleString()}`, className: "text-success" },
         ]}
@@ -253,6 +279,16 @@ export default function UsersPage() {
           placeholder="Search by name, email or Telegram…"
           leading={<IconSearch className="h-4 w-4" stroke={1.8} />}
           trailing={refreshing ? <span className="text-[12px]">Updating…</span> : undefined}
+        />
+        <Segmented
+          className="flex-shrink-0"
+          items={[
+            { value: "all", label: "All" },
+            { value: "admin", label: "Admins" },
+            { value: "user", label: "Investors" },
+          ]}
+          value={roleFilter}
+          onChange={(v) => { setRoleFilter(v as RoleFilter); setPage(1) }}
         />
       </div>
 
@@ -400,6 +436,32 @@ export default function UsersPage() {
             {error && errorNotice}
             <p>
               Generate a temporary password for <strong className="font-bold text-foreground">{resetting.name || resetting.email}</strong>? They'll be signed out on every device and emailed a link to choose a new password.
+            </p>
+          </div>
+        )}
+      </Modal>
+
+      {/* Revoke admin */}
+      <Modal
+        open={!!revoking}
+        onClose={() => !busy && setRevoking(null)}
+        title="Revoke admin"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setRevoking(null)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleRevokeAdmin} loading={busy} disabled={busy}>
+              {busy ? "Revoking…" : "Revoke admin"}
+            </Button>
+          </>
+        }
+      >
+        {revoking && (
+          <div className="space-y-4">
+            {error && errorNotice}
+            <p className="text-[14px] leading-[22px] text-general">
+              Remove admin access from <strong className="font-bold text-foreground">{revoking.name || revoking.email}</strong>? They keep their account and history as a regular investor, lose the admin panel, and are signed out of every device.
             </p>
           </div>
         )}

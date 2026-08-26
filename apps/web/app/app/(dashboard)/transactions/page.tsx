@@ -13,6 +13,8 @@ interface Transaction {
   amount: number
   net: number
   fee: number
+  /** Withdrawal tax the client deposits up front — never deducted from `net`. */
+  tax: number
   currency: string
   status: string
   note: string
@@ -80,7 +82,7 @@ export default function TransactionsPage() {
     totalDeposits: transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.net, 0),
     totalReturns: transactions.filter(t => t.type === 'return').reduce((sum, t) => sum + t.net, 0),
     totalWithdrawals: transactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + t.net, 0),
-    totalFees: transactions.reduce((sum, t) => t.type !== 'return' ? sum + (t.fee || 0) : sum, 0),
+    totalTax: transactions.reduce((sum, t) => sum + (t.tax || 0), 0),
   }
 
   const formatDate = (dateStr: string) => {
@@ -115,7 +117,7 @@ export default function TransactionsPage() {
         <SummaryCell label="Deposits" value={`$${stats.totalDeposits.toLocaleString()}`} hint="Net credited" />
         <SummaryCell label="Returns" value={`+$${stats.totalReturns.toLocaleString()}`} tone="success" hint="Paid out" />
         <SummaryCell label="Withdrawals" value={`-$${stats.totalWithdrawals.toLocaleString()}`} hint="Net sent" />
-        <SummaryCell label="Fees paid" value={`-$${stats.totalFees.toLocaleString()}`} tone="muted" hint="All time" />
+        <SummaryCell label="Tax paid" value={`$${stats.totalTax.toLocaleString()}`} tone="muted" hint="All time" />
       </Card>
 
       {/* Statement */}
@@ -226,14 +228,20 @@ export default function TransactionsPage() {
                 <dt className="text-less">Amount</dt>
                 <dd className="font-bold tabular-nums text-foreground">${selectedTx.amount.toLocaleString()} {selectedTx.currency}</dd>
               </div>
-              {selectedTx.type !== 'return' && (
+              {selectedTx.type === 'withdrawal' && (
                 <div className="flex items-center justify-between gap-4 py-2.5">
-                  <dt className="text-less">Fee (16.5%)</dt>
+                  <dt className="text-less">Tax (16.5%, paid separately)</dt>
+                  <dd className="tabular-nums text-foreground">${selectedTx.tax.toLocaleString()}</dd>
+                </div>
+              )}
+              {selectedTx.type !== 'withdrawal' && selectedTx.fee > 0 && (
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="text-less">Fee</dt>
                   <dd className="tabular-nums text-less">-${selectedTx.fee.toLocaleString()}</dd>
                 </div>
               )}
               <div className="flex items-center justify-between gap-4 py-2.5">
-                <dt className="text-less">Net received</dt>
+                <dt className="text-less">{selectedTx.type === 'withdrawal' ? 'You received' : 'Net received'}</dt>
                 <dd className="font-bold tabular-nums text-foreground">${selectedTx.net.toLocaleString()}</dd>
               </div>
               <div className="flex items-center justify-between gap-4 py-2.5">

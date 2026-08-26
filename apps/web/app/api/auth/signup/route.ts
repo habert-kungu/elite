@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createUser, setSessionCookie } from "@/lib/auth"
+import { createUser, createTwoFactorCode, createMfaChallenge, setMfaCookie, maskEmail } from "@/lib/auth"
 import prisma from "@/lib/db"
-import { welcomeEmail } from "@/lib/mail"
+import { welcomeEmail, loginCodeEmail } from "@/lib/mail"
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,20 +38,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Reject the classic bot giveaway: a hidden field only a script fills in.
+    if (typeof body.website === "string" && body.website.trim() !== "") {
+      return NextResponse.json({ error: "Registration failed" }, { status: 400 })
+    }
+
     const user = await createUser(email, password, name, telegram)
     void welcomeEmail(user.email, user.name)
 
+    // No session yet — the account is unusable until the emailed code is
+    // verified, so nobody can sign up and start acting on an unowned inbox.
+    const code = await createTwoFactorCode(user.id, "login")
+    const mail = await loginCodeEmail(user.email, code, { purpose: "login", name: user.name })
+    const challenge = await createMfaChallenge(user)
     const response = NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        telegram: user.telegram,
-      },
+      requiresTwoFactor: true,
+      email: maskEmail(user.email),
+      emailSent: mail.sent,
     })
-
-    return setSessionCookie(response, user)
+    return setMfaCookie(response, challenge)
   } catch (error) {
     console.error("Signup error:", error)
     return NextResponse.json(

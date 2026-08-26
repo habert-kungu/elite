@@ -26,7 +26,7 @@ export default function InvestorPage() {
   const { data, loading, error, refresh } = useCachedFetch<Detail>(key, { ttl: 30_000 })
 
   const [adjusting, setAdjusting] = React.useState<AdminInvestment | null>(null)
-  const [confirm, setConfirm] = React.useState<"reset" | "remove" | null>(null)
+  const [confirm, setConfirm] = React.useState<"reset" | "remove" | "revoke" | null>(null)
   const [busy, setBusy] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<React.ReactNode>(null)
   const [err, setErr] = React.useState("")
@@ -75,9 +75,8 @@ export default function InvestorPage() {
     }
   }
 
-  const toggleRole = async () => {
+  const setRole = async (role: "admin" | "user") => {
     if (!data) return
-    const role = data.user.role === "admin" ? "user" : "admin"
     setBusy("role")
     setErr("")
     try {
@@ -85,23 +84,12 @@ export default function InvestorPage() {
       const json = await res.json()
       if (!res.ok) setErr(json.error || "Failed")
       else {
-        setNotice(`${data.user.name || data.user.email} is now ${role === "admin" ? "an admin" : "a regular user"}.`)
-        await reload()
-      }
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const disableTwoFactor = async () => {
-    setBusy("2fa")
-    setErr("")
-    try {
-      const res = await fetch(`/api/admin/users/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ twoFactorEnabled: false }) })
-      const json = await res.json()
-      if (!res.ok) setErr(json.error || "Failed")
-      else {
-        setNotice("Two-step verification turned off for this account — they can sign in with just their password and were emailed about the change.")
+        setConfirm(null)
+        setNotice(
+          role === "admin"
+            ? `${data.user.name || data.user.email} is now an admin.`
+            : `${data.user.name || data.user.email} is no longer an admin. Their sessions were signed out.`
+        )
         await reload()
       }
     } finally {
@@ -172,8 +160,9 @@ export default function InvestorPage() {
             <ActionMenu
               items={[
                 { label: "Reset password", onClick: () => setConfirm("reset") },
-                { label: "Turn off two-step verification", onClick: disableTwoFactor, disabled: !u.twoFactorEnabled || busy === "2fa", title: u.twoFactorEnabled ? "Use when an investor can't receive their sign-in codes" : "Not enabled on this account" },
-                { label: u.role === "admin" ? "Make regular user" : "Make admin", onClick: toggleRole, disabled: isMe, title: isMe ? "You can't change your own role" : undefined },
+                u.role === "admin"
+                  ? { label: "Revoke admin", onClick: () => setConfirm("revoke"), danger: true, disabled: isMe, title: isMe ? "You can't change your own role" : undefined }
+                  : { label: "Make admin", onClick: () => setRole("admin"), disabled: isMe, title: isMe ? "You can't change your own role" : undefined },
                 { label: "Remove user", onClick: () => setConfirm("remove"), danger: true, disabled: isMe, title: isMe ? "You can't remove your own account" : undefined },
               ]}
             />
@@ -382,6 +371,26 @@ export default function InvestorPage() {
       >
         <p>
           Generate a temporary password for <strong className="font-bold text-foreground">{u.name || u.email}</strong>? They'll be signed out everywhere and emailed a link to choose a new password.
+        </p>
+      </Modal>
+
+      <Modal
+        open={confirm === "revoke"}
+        onClose={() => !busy && setConfirm(null)}
+        title="Revoke admin"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirm(null)} disabled={!!busy}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => setRole("user")} loading={busy === "role"} disabled={!!busy}>
+              {busy === "role" ? "Revoking…" : "Revoke admin"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[14px] leading-[22px] text-general">
+          Remove admin access from <strong className="font-bold text-foreground">{u.name || u.email}</strong>? They keep their account and history as a regular investor, lose the admin panel, and are signed out of every device.
         </p>
       </Modal>
 

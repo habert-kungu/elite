@@ -16,9 +16,13 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1)
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "10", 10) || 10))
 
-    const where = q
-      ? { OR: [{ email: { contains: q } }, { name: { contains: q } }, { telegram: { contains: q } }] }
-      : {}
+    const roleParam = searchParams.get("role")
+    const role = roleParam === "admin" || roleParam === "user" ? roleParam : null
+
+    const where = {
+      ...(q ? { OR: [{ email: { contains: q } }, { name: { contains: q } }, { telegram: { contains: q } }] } : {}),
+      ...(role ? { role } : {}),
+    }
 
     const [total, users, deposits, returns] = await Promise.all([
       prisma.user.count({ where }),
@@ -46,6 +50,7 @@ export async function GET(request: NextRequest) {
 
     const totals = {
       users: await prisma.user.count(),
+      admins: await prisma.user.count({ where: { role: "admin" } }),
       deposits: deposits.reduce((s, d) => s + (d._sum.amount || 0), 0),
       returns: returns.reduce((s, r) => s + (r._sum.amount || 0), 0),
     }

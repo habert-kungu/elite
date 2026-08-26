@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { validateUser, setSessionCookie, createTwoFactorCode, createMfaChallenge, setMfaCookie, maskEmail } from "@/lib/auth"
+import { validateUser, createTwoFactorCode, createMfaChallenge, setMfaCookie, maskEmail } from "@/lib/auth"
+import prisma from "@/lib/db"
 import { loginCodeEmail } from "@/lib/mail"
 import { checkRateLimit, getRateLimitResetSeconds, clearRateLimit } from "@/lib/rate-limit"
 
@@ -26,20 +27,17 @@ export async function POST(request: NextRequest) {
 
     clearRateLimit(rateLimitKey)
 
-    if (user.twoFactorEnabled) {
-      // Password accepted; hold the session behind a short-lived challenge and
-      // email a one-time code. The real session cookie is only set by /2fa/verify.
-      const code = await createTwoFactorCode(user.id, "login")
-      const mail = await loginCodeEmail(user.email, code, { purpose: "login", name: user.name })
-      const challenge = await createMfaChallenge(user)
-      const res = NextResponse.json({ requiresTwoFactor: true, email: maskEmail(user.email), emailSent: mail.sent })
-      return setMfaCookie(res, challenge)
+    // Two-step verification is mandatory: the password only buys a short-lived
+    // challenge. The real session cookie is set by /2fa/verify and nowhere else,
+    // so an unverified account can never reach the app.
+    if (!user.twoFactorEnabled) {
+      await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } })
     }
-
-    const response = NextResponse.json({
-      user: { id: user.id, email: user.email, name: user.name, role: user.role, telegram: user.telegram },
-    })
-    return setSessionCookie(response, user)
+    const code = await createTwoFactorCode(user.id, "login")
+    const mail = await loginCodeEmail(user.email, code, { purpose: "login", name: user.name })
+    const challenge = await createMfaChallenge(user)
+    const res = NextResponse.json({ requiresTwoFactor: true, email: maskEmail(user.email), emailSent: mail.sent })
+    return setMfaCookie(res, challenge)
   } catch (error) {
     console.error("Signin error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

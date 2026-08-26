@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminUser, hashPassword, isStrongEnoughPassword, createPasswordResetToken } from "@/lib/auth"
-import { appUrl, twoFactorChangedEmail } from "@/lib/mail"
+import { appUrl } from "@/lib/mail"
 import { passwordResetByAdminEmail } from "@/lib/mail"
 import prisma from "@/lib/db"
 import { effectiveCycle } from "@/lib/trading"
@@ -118,10 +118,12 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
     const { id } = await params
     const body = await request.json()
-    const data: { role?: string; name?: string; telegram?: string | null; twoFactorEnabled?: boolean } = {}
+    const data: { role?: string; name?: string; telegram?: string | null } = {}
 
-    // Admin can switch two-step OFF for a locked-out investor (never on — that needs their inbox).
-    if (body.twoFactorEnabled === false) data.twoFactorEnabled = false
+    // Two-step verification is mandatory — not even an admin can switch it off.
+    if (body.twoFactorEnabled === false) {
+      return NextResponse.json({ error: "Two-step verification is required and can't be turned off." }, { status: 403 })
+    }
 
     if (body.role !== undefined) {
       if (!["admin", "user"].includes(body.role)) {
@@ -129,6 +131,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       }
       if (id === admin.id && body.role !== "admin") {
         return NextResponse.json({ error: "You can't demote your own account" }, { status: 400 })
+      }
+      if (body.role !== "admin") {
+        // Never let the platform end up with nobody who can administer it.
+        const target = await prisma.user.findUnique({ where: { id }, select: { role: true } })
+        if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 })
+        if (target.role === "admin" && (await prisma.user.count({ where: { role: "admin" } })) <= 1) {
+          return NextResponse.json({ error: "Can't revoke the last admin" }, { status: 400 })
+        }
       }
       data.role = body.role
     }
@@ -141,7 +151,6 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       data: data.role !== undefined ? { ...data, tokenVersion: { increment: 1 } } : data,
       select: { id: true, email: true, name: true, telegram: true, role: true, twoFactorEnabled: true },
     })
-    if (data.twoFactorEnabled === false) void twoFactorChangedEmail(user.email, false, user.name)
     return NextResponse.json({ success: true, user })
   } catch (error) {
     console.error("Error updating user:", error)

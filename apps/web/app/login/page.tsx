@@ -29,6 +29,7 @@ export default function LoginPage() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get("reset") === "1") setNotice("Your password was updated. Sign in with your new password.")
+    else if (params.get("expired") === "1") setNotice("Your session ended for security. Sign in again to continue.")
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

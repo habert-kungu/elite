@@ -8,14 +8,27 @@ import { AuthFooter, AuthShell, authLinkCls } from "@/app/components/auth-shell"
 import { IconEye, IconEyeOff } from "@tabler/icons-react"
 
 export default function SignupPage() {
-  const { signUp } = useAuth()
+  const { signUp, verifyTwoFactor, resendTwoFactor } = useAuth()
+  const [step, setStep] = React.useState<"details" | "code">("details")
   const [name, setName] = React.useState("")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
   const [telegram, setTelegram] = React.useState("")
+  // Honeypot: invisible to people, irresistible to form-filling bots.
+  const [website, setWebsite] = React.useState("")
+  const [code, setCode] = React.useState("")
+  const [maskedEmail, setMaskedEmail] = React.useState("")
+  const [notice, setNotice] = React.useState("")
+  const [resendIn, setResendIn] = React.useState(0)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState("")
   const [showPassword, setShowPassword] = React.useState(false)
+
+  React.useEffect(() => {
+    if (resendIn <= 0) return
+    const t = setTimeout(() => setResendIn((n) => n - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendIn])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,23 +36,104 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      // Use the auth provider so the user is hydrated in context before redirect.
-      await signUp({ name, email, password, telegram })
+      // Every new account verifies its email before it can be used.
+      const result = await signUp({ name, email, password, telegram, website })
+      setMaskedEmail(result.email || email)
+      setStep("code")
+      setResendIn(30)
+      setNotice(result.emailSent === false ? "We couldn't email the code — contact support." : "")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred. Please try again.")
+    } finally {
       setLoading(false)
     }
   }
 
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+    try {
+      await verifyTwoFactor(code)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verification failed")
+      setLoading(false)
+    }
+  }
+
+  const handleResend = async () => {
+    setError("")
+    setNotice("")
+    try {
+      const r = await resendTwoFactor()
+      setResendIn(30)
+      setNotice(`A new code was sent to ${r.email || maskedEmail}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't resend the code")
+    }
+  }
+
   return (
-    <AuthShell title="Create your account" subtitle="Join Elite Forex Hub and grow your portfolio.">
+    <AuthShell
+      title={step === "code" ? "Verify your email" : "Create your account"}
+      subtitle={
+        step === "code" ? (
+          <>
+            We sent a 6-digit code to <span className="font-bold text-foreground">{maskedEmail}</span>. It&apos;s valid for 10 minutes.
+          </>
+        ) : (
+          "Join Elite Forex Hub and grow your portfolio."
+        )
+      }
+    >
+      {notice && !error && (
+        <Notice tone="success" className="mb-4">
+          {notice}
+        </Notice>
+      )}
       {error && (
         <Notice tone="danger" className="mb-4">
           {error}
         </Notice>
       )}
 
+      {step === "code" ? (
+        <form onSubmit={handleVerify} className="space-y-4">
+          <TextField
+            label="Verification code"
+            name="code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="123456"
+            autoFocus
+            required
+            inputClassName="text-center text-[18px] font-bold tracking-[0.4em] tabular-nums"
+          />
+          <Button type="submit" block loading={loading} disabled={code.length !== 6}>
+            {loading ? "Verifying…" : "Verify and continue"}
+          </Button>
+          <Button type="button" variant="tertiary" size="sm" onClick={handleResend} disabled={resendIn > 0}>
+            {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+          </Button>
+        </form>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Honeypot — hidden from people, so anything typed here is a bot. */}
+        <input
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          className="hidden"
+        />
         <TextField
           label="Full name"
           name="name"
@@ -99,6 +193,7 @@ export default function SignupPage() {
           {loading ? "Creating..." : "Create account"}
         </Button>
       </form>
+      )}
 
       <p className="mt-4 text-center text-[12px] leading-[18px] text-less">
         By creating an account, you agree to our{" "}

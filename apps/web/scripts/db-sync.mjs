@@ -66,6 +66,11 @@ try {
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash")`)
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId")`)
 
+  // Two-step verification is mandatory platform-wide: switch it on for every
+  // account carried over from an older image. Idempotent by design.
+  const enforced = await prisma.$executeRawUnsafe(`UPDATE "User" SET "twoFactorEnabled" = 1 WHERE "twoFactorEnabled" = 0`)
+  if (enforced > 0) console.log(`→ db-sync: enabled two-step verification on ${enforced} account(s)`)
+
   console.log("→ db-sync: schema up to date")
 } catch (err) {
   console.error("db-sync failed:", err)

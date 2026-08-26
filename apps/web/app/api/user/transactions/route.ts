@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/db'
+import { withdrawalTax } from '@/lib/trading'
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,8 +27,11 @@ export async function GET(request: NextRequest) {
       id: t.id,
       type: t.type,
       amount: t.amount,
-      net: t.netAmount || t.amount,
-      fee: t.fee || (t.type !== 'return' ? t.amount - (t.netAmount || t.amount) : 0),
+      // Withdrawals are paid in full: the 16.5% tax is settled up front by the
+      // client, never withheld — so ignore any fee/net split on older rows.
+      net: t.type === 'withdrawal' ? t.amount : t.netAmount || t.amount,
+      fee: t.type === 'withdrawal' ? 0 : t.fee || 0,
+      tax: t.type === 'withdrawal' ? withdrawalTax(t.amount) : 0,
       currency: t.currency,
       status: t.status,
       note: t.note || getNoteForType(t.type, t.amount),
@@ -47,7 +51,7 @@ function getNoteForType(type: string, amount: number): string {
     case 'deposit':
       return 'TRC20 Network - Confirmed'
     case 'withdrawal':
-      return '16.5% fee applied'
+      return 'Paid in full — tax settled separately'
     case 'return':
       return 'Investment cycle completed'
     case 'investment':

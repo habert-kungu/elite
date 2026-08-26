@@ -18,7 +18,7 @@ model User {
   /// Bumped to invalidate every issued session (password change/reset, admin action).
   tokenVersion  Int            @default(0)
   /// Email two-step verification: a 6-digit code is required at sign-in.
-  twoFactorEnabled Boolean     @default(false)
+  twoFactorEnabled Boolean     @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
