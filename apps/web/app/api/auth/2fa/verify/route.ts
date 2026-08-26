@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { readMfaChallenge, verifyTwoFactorCode, setSessionCookie, clearMfaCookie } from "@/lib/auth"
+import { readMfaChallenge, verifyTwoFactorCode, setSessionCookie, clearMfaCookie, setTrustedDeviceCookie } from "@/lib/auth"
 import prisma from "@/lib/db"
 
 /** POST { code } — completes a two-step sign-in started by /api/auth/signin. */
@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     const result = await verifyTwoFactorCode(user.id, "login", String(code ?? ""))
     if (result === "ok") {
       const res = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, telegram: user.telegram } })
+      // This browser has now proved itself: skip the code here for 30 days.
+      await setTrustedDeviceCookie(res, user)
       return clearMfaCookie(await setSessionCookie(res, user))
     }
     const messages = {

@@ -4,10 +4,14 @@ import prisma from "./db"
 import {
   SESSION_COOKIE,
   SESSION_IDLE_MAX_AGE,
+  TRUSTED_DEVICE_COOKIE,
+  TRUSTED_DEVICE_MAX_AGE,
   createToken,
+  createTrustedDeviceToken,
   getJwtSecret,
   sessionCookieOptions,
   sessionExpired,
+  trustedDeviceMatches,
   verifyToken,
   type JWTPayload,
 } from "./session-token"
@@ -83,9 +87,9 @@ export function sessionClaims(
 }
 
 /**
- * Issues a session cookie. Sessions are deliberately short: 30 minutes of
- * inactivity (the middleware slides that window on each request) and 8 hours
- * of total life, after which the user signs in again.
+ * Issues a session cookie. Sessions slide: 8 hours of inactivity (proxy.ts
+ * renews that window on each request) and 7 days of total life,
+ * after which the user signs in again.
  */
 export async function setSessionCookie(
   response: NextResponse,
@@ -97,6 +101,27 @@ export async function setSessionCookie(
 
 export function clearSessionCookie(response: NextResponse) {
   response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(0))
+  return response
+}
+
+/** Has this browser already cleared the code step for this user? */
+export async function isTrustedDevice(
+  request: NextRequest,
+  user: { id: string; tokenVersion: number }
+): Promise<boolean> {
+  return trustedDeviceMatches(request.cookies.get(TRUSTED_DEVICE_COOKIE)?.value, user)
+}
+
+/** Remembers this browser for 30 days, so the next sign-in needs no emailed code. */
+export async function setTrustedDeviceCookie(
+  response: NextResponse,
+  user: { id: string; tokenVersion: number }
+) {
+  response.cookies.set(
+    TRUSTED_DEVICE_COOKIE,
+    await createTrustedDeviceToken(user),
+    { ...sessionCookieOptions(TRUSTED_DEVICE_MAX_AGE) }
+  )
   return response
 }
 
