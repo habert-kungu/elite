@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import prisma from '@/lib/db'
+import { withdrawableBalance } from '@/lib/balance'
 import { effectiveCycle, planCurrency, planFor } from '@/lib/trading'
 
 export async function GET(request: NextRequest) {
@@ -71,8 +72,13 @@ export async function GET(request: NextRequest) {
     const totalAssets = usdCompleted.reduce((sum: number, i: any) => sum + i.amount * i.roi, 0) +
       usdActive.reduce((sum: number, i: any) => sum + i.amount, 0)
 
+    // Withdrawable = completed returns less anything already requested or paid.
+    const balance = await withdrawableBalance(userId)
+
     return NextResponse.json({
       totalAssets: Math.round(totalAssets * 100) / 100,
+      withdrawable: balance.available,
+      balance,
       totalInvested: Math.round(totalInvested * 100) / 100,
       totalProfit: Math.round(totalProfit * 100) / 100,
       pendingReturns: Math.round(pendingReturns * 100) / 100,

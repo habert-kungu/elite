@@ -2,25 +2,28 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Badge, Button, Card, CardHeader, Modal, Segmented, Stat, statusTone, TextField } from "@/components/ui"
+import { Badge, Button, Card, CardHeader, Modal, Notice, Segmented, Stat, statusTone, TextField } from "@/components/ui"
 import { PageHeader } from "@/app/components/page-header"
 import { useAuth } from "@/app/providers/auth-provider"
-import { useCachedFetch } from "@/lib/use-cached-fetch"
+import { useCachedFetch, invalidateCache } from "@/lib/use-cached-fetch"
 import { WITHDRAWAL_TAX_RATE, withdrawalTax } from "@/lib/trading"
 import { IconArrowUpRight, IconClockHour4 } from "@tabler/icons-react"
 
-const AVAILABLE_BALANCE = 4250.0
-
 const NETWORKS = ["TRC20", "ERC20", "BEP20"].map((n) => ({ value: n, label: n }))
 
-/** Recent withdrawals come from the cached transactions feed the Reports page uses. */
-interface Transaction {
+interface WithdrawalRow {
   id: string
-  type: string
   amount: number
-  net: number
+  tax: number
   status: string
   createdAt: string
+}
+
+/** Balance and history both come from the withdrawals endpoint. */
+interface WithdrawalsResponse {
+  balance: { returns: number; withdrawn: number; available: number }
+  minimum: number
+  withdrawals: WithdrawalRow[]
 }
 
 function money(n: number) {
@@ -29,14 +32,20 @@ function money(n: number) {
 
 export default function WithdrawPage() {
   const { user } = useAuth()
-  const { data: txData } = useCachedFetch<{ transactions: Transaction[] }>(user ? "/api/user/transactions" : null, { ttl: 60_000 })
-  const recentWithdrawals = React.useMemo(() => (txData?.transactions ?? []).filter((t) => t.type === "withdrawal").slice(0, 5), [txData])
+  const { data, loading, refresh } = useCachedFetch<WithdrawalsResponse>(user ? "/api/user/withdrawals" : null, { ttl: 30_000 })
+  const balance = data?.balance
+  const available = balance?.available ?? 0
+  const minimum = data?.minimum ?? 50
+  const recentWithdrawals = React.useMemo(() => (data?.withdrawals ?? []).slice(0, 5), [data])
 
   const [amount, setAmount] = React.useState("")
   const [address, setAddress] = React.useState("")
   const [network, setNetwork] = React.useState("TRC20")
   const [showConfirm, setShowConfirm] = React.useState(false)
   const [taxAcknowledged, setTaxAcknowledged] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const [success, setSuccess] = React.useState("")
 
   const withdrawAmount = amount ? parseFloat(amount) : 0
   // The 16.5% tax is settled up front by the client — it is never taken off the
@@ -45,27 +54,49 @@ export default function WithdrawPage() {
   const receiveAmount = withdrawAmount
   const taxPercent = `${(WITHDRAWAL_TAX_RATE * 100).toFixed(1)}%`
 
-  const handleSubmit = () => {
-    const message = `💰 *Withdrawal Request*\n\n*Amount:* $${withdrawAmount}\n*Tax deposit (${taxPercent}):* $${tax.toFixed(2)} — settled before payout\n*You receive:* $${receiveAmount.toFixed(2)}\n*Network:* ${network}\n*Address:* ${address}`
-    const telegramUrl = `https://t.me/Patrick_vile?text=${encodeURIComponent(message)}`
-    window.open(telegramUrl, "_blank")
-    setShowConfirm(false)
-    setAmount("")
-    setAddress("")
-    setTaxAcknowledged(false)
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setError("")
+    try {
+      const res = await fetch("/api/user/withdrawals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: withdrawAmount, address, network, taxAcknowledged }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error || "Couldn't submit your withdrawal")
+        return
+      }
+
+      // Keep the Telegram hand-off so support sees the request immediately.
+      const message = `💰 *Withdrawal Request*\n\n*Amount:* $${withdrawAmount}\n*Tax deposit (${taxPercent}):* $${tax.toFixed(2)} — settled before payout\n*You receive:* $${receiveAmount.toFixed(2)}\n*Network:* ${network}\n*Address:* ${address}\n*Reference:* ${json.withdrawal.id}`
+      window.open(`https://t.me/Patrick_vile?text=${encodeURIComponent(message)}`, "_blank")
+
+      setShowConfirm(false)
+      setAmount("")
+      setTaxAcknowledged(false)
+      setSuccess(`Your $${withdrawAmount.toLocaleString()} withdrawal is pending. We'll email you once it's paid.`)
+      invalidateCache("/api/user/")
+      await refresh()
+    } catch {
+      setError("Network error. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const isValid =
-    withdrawAmount >= 50 &&
-    withdrawAmount <= AVAILABLE_BALANCE &&
-    address.length > 0 &&
+    withdrawAmount >= minimum &&
+    withdrawAmount <= available &&
+    address.trim().length >= 20 &&
     taxAcknowledged
 
   const amountError =
-    withdrawAmount > 0 && withdrawAmount < 50
-      ? "Minimum withdrawal is $50"
-      : withdrawAmount > AVAILABLE_BALANCE
-        ? "Amount exceeds your available balance"
+    withdrawAmount > 0 && withdrawAmount < minimum
+      ? `Minimum withdrawal is $${minimum}`
+      : withdrawAmount > available
+        ? "Amount exceeds what you can withdraw"
         : undefined
 
   return (
@@ -86,7 +117,7 @@ export default function WithdrawPage() {
           <CardHeader title="Withdraw" description="Funds are sent to the address below once the request is approved." />
 
           <div className="mt-5 grid grid-cols-2 divide-x divide-[var(--background-hover)] rounded-[8px] bg-background">
-            <Stat className="px-4 py-3" label="Available balance" value={`$${money(AVAILABLE_BALANCE)}`} hint="USDT" />
+            <Stat className="px-4 py-3" label="Available to withdraw" value={loading ? "—" : `$${money(available)}`} hint="Completed returns only" />
             <Stat className="px-4 py-3" label="You receive" value={`$${money(receiveAmount)}`} tone={withdrawAmount > 0 ? "success" : undefined} hint="Paid in full" />
           </div>
 
@@ -103,12 +134,12 @@ export default function WithdrawPage() {
               leading={<span className="text-[14px] font-bold">USDT</span>}
               inputClassName="pl-16 font-bold tabular-nums"
               trailing={
-                <button type="button" onClick={() => setAmount(AVAILABLE_BALANCE.toString())} className="pointer-events-auto text-[12px] font-bold text-brand hover:underline">
+                <button type="button" onClick={() => setAmount(String(available))} disabled={available <= 0} className="pointer-events-auto text-[12px] font-bold text-brand hover:underline disabled:opacity-40">
                   Max
                 </button>
               }
               error={amountError}
-              help={`Minimum $50 · up to $${money(AVAILABLE_BALANCE)}`}
+              help={`Minimum $${minimum} · up to $${money(available)}`}
             />
 
             <TextField
@@ -155,6 +186,12 @@ export default function WithdrawPage() {
                 withdrawal. It is paid separately and is never deducted from the amount I receive.
               </span>
             </label>
+
+            {error && <Notice tone="danger">{error}</Notice>}
+            {success && <Notice tone="success">{success}</Notice>}
+            {!loading && available <= 0 && (
+              <Notice tone="info">You have nothing to withdraw yet. Returns become withdrawable once a cycle completes.</Notice>
+            )}
 
             <Button type="button" block onClick={() => isValid && setShowConfirm(true)} disabled={!isValid}>
               <IconArrowUpRight className="h-4 w-4" stroke={2} />
@@ -210,7 +247,7 @@ export default function WithdrawPage() {
             <Button variant="secondary" onClick={() => setShowConfirm(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>Confirm</Button>
+            <Button onClick={handleSubmit} loading={submitting} disabled={submitting}>Confirm</Button>
           </>
         }
       >

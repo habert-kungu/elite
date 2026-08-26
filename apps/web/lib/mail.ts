@@ -476,6 +476,82 @@ export const buildNewDepositAdmin = (opts: NewDepositAdminOpts): MailMessage | n
   return to ? newDepositAdminMessage(to, opts) : null
 }
 
+export const buildWithdrawalRequested = (
+  to: string,
+  opts: { amount: number; tax: number; network: string; address: string; name?: string | null }
+): MailMessage => ({
+  to,
+  subject: `Withdrawal requested — ${money(opts.amount)}`,
+  html: layout(
+    "Withdrawal requested",
+    `${greeting(opts.name)}
+${p("We've received your withdrawal request. You'll get another email once it has been paid out.")}
+${details([
+  ["Amount", money(opts.amount)],
+  ["You receive", `<span style="color:${BRAND.green}">${money(opts.amount)}</span>`],
+  ["Tax already deposited", money(opts.tax)],
+  ["Network", escape(opts.network)],
+  ["Address", code(opts.address)],
+])}
+${note("Withdrawals are paid in full — the tax you deposited is never taken off this amount. Payouts are processed within 24-48 hours.")}`,
+    `Your ${money(opts.amount)} withdrawal request was received.`
+  ),
+})
+
+export const buildWithdrawalSettled = (
+  to: string,
+  opts: { amount: number; approved: boolean; txHash?: string | null; name?: string | null }
+): MailMessage => ({
+  to,
+  subject: opts.approved ? `Withdrawal paid — ${money(opts.amount)}` : `Withdrawal rejected — ${money(opts.amount)}`,
+  html: layout(
+    opts.approved ? "Withdrawal paid" : "Withdrawal rejected",
+    `${greeting(opts.name)}
+${p(
+  opts.approved
+    ? `Your withdrawal of <strong>${money(opts.amount)}</strong> has been sent to your wallet.`
+    : `Your withdrawal of <strong>${money(opts.amount)}</strong> was not approved. The amount is available in your balance again.`
+)}
+${details(
+  opts.approved && opts.txHash
+    ? [["Amount", money(opts.amount)], ["Transaction", code(opts.txHash)]]
+    : [["Amount", money(opts.amount)]]
+)}
+${button(appUrl("/app/transactions"), "View your transactions")}`,
+    opts.approved ? `${money(opts.amount)} has been sent to your wallet.` : `Your ${money(opts.amount)} withdrawal was rejected.`
+  ),
+})
+
+export const buildNewWithdrawalAdmin = (opts: {
+  userEmail: string
+  userName?: string | null
+  amount: number
+  tax: number
+  network: string
+  address: string
+  withdrawalId: string
+}): MailMessage | null => {
+  const to = process.env.ADMIN_EMAIL
+  if (!to) return null
+  return {
+    to,
+    subject: `Withdrawal request — ${money(opts.amount)} from ${opts.userName || opts.userEmail}`,
+    html: layout(
+      "Withdrawal request",
+      `${p(`<strong>${escape(opts.userName || opts.userEmail)}</strong> (${escape(opts.userEmail)}) requested a withdrawal. Confirm their tax deposit before paying it out.`)}
+${details([
+  ["Amount to pay", money(opts.amount)],
+  ["Tax they deposited", money(opts.tax)],
+  ["Network", escape(opts.network)],
+  ["Address", code(opts.address)],
+  ["Reference", code(opts.withdrawalId)],
+])}
+${button(appUrl("/app/admin/transactions?type=withdrawal"), "Review in admin panel")}`,
+      `${money(opts.amount)} withdrawal from ${opts.userName || opts.userEmail} — needs review.`
+    ),
+  }
+}
+
 /** Turns admin-written plain text into safe, paragraphed HTML (blank line = new paragraph). */
 function textToHtml(text: string): string {
   return text
@@ -518,6 +594,12 @@ export const investmentDecisionEmail = (to: string, opts: Parameters<typeof buil
 export const cycleCompletedEmail = (to: string, opts: Parameters<typeof buildCycleCompleted>[1]) => sendMail(buildCycleCompleted(to, opts))
 export function newDepositAdminEmail(opts: Parameters<typeof buildNewDepositAdmin>[0]) {
   const msg = buildNewDepositAdmin(opts)
+  return msg ? sendMail(msg) : Promise.resolve({ sent: false, error: "ADMIN_EMAIL not set" })
+}
+export const withdrawalRequestedEmail = (to: string, opts: Parameters<typeof buildWithdrawalRequested>[1]) => sendMail(buildWithdrawalRequested(to, opts))
+export const withdrawalSettledEmail = (to: string, opts: Parameters<typeof buildWithdrawalSettled>[1]) => sendMail(buildWithdrawalSettled(to, opts))
+export function newWithdrawalAdminEmail(opts: Parameters<typeof buildNewWithdrawalAdmin>[0]) {
+  const msg = buildNewWithdrawalAdmin(opts)
   return msg ? sendMail(msg) : Promise.resolve({ sent: false, error: "ADMIN_EMAIL not set" })
 }
 export const customEmail = (to: string, opts: Parameters<typeof buildCustom>[1]) => sendMail(buildCustom(to, opts))

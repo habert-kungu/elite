@@ -19,6 +19,7 @@ export const EVENTS = {
   INVESTMENT_REJECTED: 'investment:rejected',
   INVESTMENT_UPDATED: 'investment:updated',
   CYCLE_COMPLETED: 'cycle:completed',
+  WITHDRAWAL_REQUESTED: 'withdrawal:requested',
   WITHDRAWAL_PROCESSED: 'withdrawal:processed',
 }
 
